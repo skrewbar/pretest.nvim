@@ -1,0 +1,117 @@
+local ui = require("pretest.ui")
+local util = require("pretest.util")
+
+local M = {}
+
+local subcommands = {
+  "show",
+  "toggle_ui",
+  "run",
+  "run_current",
+  "run_no_compile",
+  "add",
+  "edit",
+  "delete",
+}
+
+---@param indices string[]|nil
+---@return integer[]|nil
+local function parse_indices(indices)
+  if not indices or #indices == 0 then
+    return nil
+  end
+  local out = {}
+  for _, s in ipairs(indices) do
+    local n = tonumber(s)
+    if not n then
+      util.notify("invalid index: " .. s, vim.log.levels.ERROR)
+      return nil
+    end
+    out[#out + 1] = n
+  end
+  return out
+end
+
+---@param indices integer[]|nil
+---@param do_compile boolean
+function M.run(indices, do_compile)
+  ui.run(indices, do_compile)
+end
+
+---@param args string
+function M.command(args)
+  local parts = vim.split(args or "", " ", { plain = true, trimempty = true })
+  local sub = parts[1]
+  if not sub then
+    util.notify("usage: Pretest <subcommand>", vim.log.levels.WARN)
+    return
+  end
+
+  if sub == "show" then
+    ui.toggle()
+  elseif sub == "toggle_ui" then
+    ui.toggle_ui_mode()
+  elseif sub == "run" then
+    local rest = vim.list_slice(parts, 2)
+    M.run(parse_indices(rest), true)
+  elseif sub == "run_current" then
+    local s = ui.get_session() or ui.ensure_session()
+    if not s then
+      return
+    end
+    local idx = s.index
+    if idx < 1 then
+      util.notify("no current testcase", vim.log.levels.WARN)
+      return
+    end
+    M.run({ idx }, true)
+  elseif sub == "run_no_compile" then
+    local rest = vim.list_slice(parts, 2)
+    M.run(parse_indices(rest), false)
+  elseif sub == "add" then
+    ui.add_testcase()
+  elseif sub == "edit" then
+    local idx = tonumber(parts[2])
+    ui.goto_case(idx)
+  elseif sub == "delete" then
+    local idx = tonumber(parts[2])
+    ui.delete_testcase(idx)
+  else
+    util.notify("unknown subcommand: " .. sub, vim.log.levels.ERROR)
+  end
+end
+
+---@param arglead string
+---@param cmdline string
+---@return string[]
+function M.complete(arglead, cmdline)
+  local parts = vim.split(cmdline, " ", { plain = true, trimempty = true })
+  -- cmdline looks like: "Pretest", "Pretest r", "Pretest run 1"
+  -- Completing the subcommand when only the command is present (optionally
+  -- with a trailing space), or when typing a partial subcommand.
+  local completing_sub = (#parts == 1) or (#parts == 2 and not cmdline:match("%s$"))
+  if completing_sub then
+    local matches = {}
+    for _, s in ipairs(subcommands) do
+      if s:sub(1, #arglead) == arglead then
+        matches[#matches + 1] = s
+      end
+    end
+    return matches
+  end
+  return {}
+end
+
+function M.setup()
+  vim.api.nvim_create_user_command("Pretest", function(opts)
+    M.command(opts.args)
+  end, {
+    nargs = "*",
+    complete = function(arglead, cmdline)
+      return M.complete(arglead, cmdline)
+    end,
+    desc = "Pretest.nvim commands",
+  })
+end
+
+return M
