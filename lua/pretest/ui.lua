@@ -29,7 +29,6 @@ local preferred_ui = nil
 
 local HEADER_NS = vim.api.nvim_create_namespace("pretest_header")
 local HEADER_HEIGHT_CAP = 36
-local HEADER_HEIGHT_MULT = 2.5
 local highlights_setup = false
 
 ---@return "sidebar"|"float"
@@ -55,6 +54,16 @@ end
 
 local function valid_buf(buf)
   return buf and vim.api.nvim_buf_is_valid(buf)
+end
+
+local function configure_win(win)
+  vim.wo[win].number = false
+  vim.wo[win].relativenumber = false
+  vim.wo[win].wrap = false
+  vim.wo[win].signcolumn = "no"
+  vim.wo[win].foldcolumn = "0"
+  vim.wo[win].list = false
+  vim.wo[win].cursorline = false
 end
 
 local function set_lines(buf, lines)
@@ -202,11 +211,10 @@ end
 
 ---@param n integer
 ---@return integer
-local function header_win_height(n)
+local function header_content_min(n)
   local hint_n = #HINT_SEGMENTS
-  -- name + cases + blank + hints
-  local base = math.max(2, 2 + n + hint_n)
-  return math.min(HEADER_HEIGHT_CAP, math.max(4, math.floor(base * HEADER_HEIGHT_MULT + 0.5)))
+  -- name + cases + blank + hints (floor so TC list stays readable)
+  return math.min(HEADER_HEIGHT_CAP, math.max(4, 2 + n + hint_n))
 end
 
 ---@param verdict string|nil
@@ -359,30 +367,197 @@ local function current_result()
   return session.results[session.index]
 end
 
+local SECTION_KEYS = { "header", "input", "expected", "output" }
+
+---Split `budget` among header/input/expected/output by weights.
+---Integer remainder always goes to header (float and sidebar).
+---@param budget integer
+---@param sec { header?: number, input?: number, expected?: number, output?: number }|nil
+---@return integer header, integer input, integer expected, integer output
+local function section_heights_from_weights(budget, sec)
+  sec = sec or {}
+  local weights = {
+    header = math.max(0.0001, tonumber(sec.header) or 1),
+    input = math.max(0.0001, tonumber(sec.input) or 1),
+    expected = math.max(0.0001, tonumber(sec.expected) or 1),
+    output = math.max(0.0001, tonumber(sec.output) or 1),
+  }
+  local mins = { header = 3, input = 3, expected = 3, output = 3 }
+  budget = math.max(12, budget)
+
+  local total_w = weights.header + weights.input + weights.expected + weights.output
+  ---@type table<string, integer>
+  local heights = {}
+  local used = 0
+  for _, key in ipairs(SECTION_KEYS) do
+    if key ~= "header" then
+      heights[key] = math.floor(budget * weights[key] / total_w)
+      used = used + heights[key]
+    end
+  end
+  heights.header = budget - used
+
+  for _, key in ipairs(SECTION_KEYS) do
+    while heights[key] < mins[key] do
+      local donor, donor_extra = nil, 0
+      for _, other in ipairs(SECTION_KEYS) do
+        if other ~= key then
+          local extra = heights[other] - mins[other]
+          if extra > donor_extra then
+            donor_extra = extra
+            donor = other
+          end
+        end
+      end
+      if not donor then
+        break
+      end
+      heights[donor] = heights[donor] - 1
+      heights[key] = heights[key] + 1
+    end
+  end
+
+  return heights.header, heights.input, heights.expected, heights.output
+end
+
+---@param show_stderr boolean
+---@param stderr_h integer|nil
 ---@return table<string, integer>
-local function compute_float_heights()
+local function compute_float_heights(show_stderr, stderr_h)
   local cfg = config.get()
-  local n = session and #session.problem.tests or 0
-  local n_sections = 5
+  local n_sections = show_stderr and 5 or 4
   local border = 2
   local total_outer = math.max(16, math.floor(vim.o.lines * cfg.float_height))
-  local content_budget = math.max(10, total_outer - n_sections * border)
-
-  local header = header_win_height(n)
-  local stderr = 2
-  local remaining = math.max(9, content_budget - header - stderr)
-  local input = math.max(3, math.floor(remaining / 3))
-  local expected = math.max(3, math.floor(remaining / 3))
-  local output = math.max(3, remaining - input - expected)
+  stderr_h = show_stderr and math.max(1, stderr_h or 2) or 0
+  local content_budget = math.max(12, total_outer - n_sections * border - stderr_h)
+  local header, input, expected, output = section_heights_from_weights(content_budget, cfg.float_sections)
 
   return {
     header = header,
     input = input,
     expected = expected,
     output = output,
-    stderr = stderr,
+    stderr = stderr_h,
     total_outer = total_outer,
   }
+end
+
+---Apply weighted heights to sidebar header + body windows.
+---@param stderr_h integer
+local function apply_sidebar_section_heights(stderr_h)
+  if not session then
+    return
+  end
+  local total = 0
+  local wins = {}
+  for _, win in ipairs(session.winids) do
+    if valid_win(win) then
+      total = total + vim.api.nvim_win_get_height(win)
+      local buf = vim.api.nvim_win_get_buf(win)
+      if
+        buf == session.bufs.header
+        or buf == session.bufs.input
+        or buf == session.bufs.expected
+        or buf == session.bufs.output
+      then
+        table.insert(wins, { win = win, buf = buf })
+      end
+    end
+  end
+  local remaining = math.max(12, total - stderr_h)
+  local header_h, input_h, expected_h, output_h =
+    section_heights_from_weights(remaining, config.get().sidebar_sections)
+  local hmin = header_content_min(#session.problem.tests)
+  if header_h < hmin and remaining >= hmin + 9 then
+    header_h = hmin
+    local body_budget = remaining - header_h
+    local sec = config.get().sidebar_sections or {}
+    local wi = math.max(0.0001, tonumber(sec.input) or 1)
+    local we = math.max(0.0001, tonumber(sec.expected) or 1)
+    local wo = math.max(0.0001, tonumber(sec.output) or 1)
+    local tw = wi + we + wo
+    input_h = math.max(3, math.floor(body_budget * wi / tw + 1e-9))
+    expected_h = math.max(3, math.floor(body_budget * we / tw + 1e-9))
+    output_h = math.max(3, body_budget - input_h - expected_h)
+  end
+  local by_buf = {
+    [session.bufs.header] = header_h,
+    [session.bufs.input] = input_h,
+    [session.bufs.expected] = expected_h,
+    [session.bufs.output] = output_h,
+  }
+  for _, item in ipairs(wins) do
+    pcall(vim.api.nvim_win_set_height, item.win, by_buf[item.buf])
+  end
+end
+
+---@param buf integer
+---@return integer|nil
+local function find_win_for_buf(buf)
+  if not session then
+    return nil
+  end
+  for _, win in ipairs(session.winids) do
+    if valid_win(win) and vim.api.nvim_win_get_buf(win) == buf then
+      return win
+    end
+  end
+  return nil
+end
+
+local function prune_winids()
+  if not session then
+    return
+  end
+  local kept = {}
+  for _, win in ipairs(session.winids) do
+    if valid_win(win) then
+      table.insert(kept, win)
+    end
+  end
+  session.winids = kept
+end
+
+---@param height integer
+---@param width integer
+---@param row integer
+---@param col integer
+---@return integer
+local function ensure_float_stderr_win(height, width, row, col)
+  local win = find_win_for_buf(session.bufs.stderr)
+  if win then
+    local wincfg = vim.api.nvim_win_get_config(win)
+    wincfg.relative = "editor"
+    wincfg.width = width
+    wincfg.height = height
+    wincfg.row = row
+    wincfg.col = col
+    pcall(vim.api.nvim_win_set_config, win, wincfg)
+    return win
+  end
+  win = vim.api.nvim_open_win(session.bufs.stderr, false, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = " Stderr ",
+    title_pos = "center",
+    zindex = 55,
+  })
+  configure_win(win)
+  table.insert(session.winids, win)
+  return win
+end
+
+local function hide_float_stderr_win()
+  local win = find_win_for_buf(session.bufs.stderr)
+  if win then
+    pcall(vim.api.nvim_win_close, win, true)
+    prune_winids()
+  end
 end
 
 local function apply_float_layout(err_lines)
@@ -391,15 +566,13 @@ local function apply_float_layout(err_lines)
   end
   local cfg = config.get()
   local width = math.max(30, math.floor(vim.o.columns * cfg.float_width))
-  local heights = compute_float_heights()
-  if err_lines then
-    heights.stderr = math.min(8, #err_lines + 1)
-  else
-    heights.stderr = 1
-  end
+  local show_stderr = err_lines ~= nil
+  local stderr_h = show_stderr and math.min(8, #err_lines + 1) or 0
+  local heights = compute_float_heights(show_stderr, stderr_h)
 
+  local n_sections = show_stderr and 5 or 4
   local content_h = heights.header + heights.input + heights.expected + heights.output + heights.stderr
-  local stack_h = content_h + 5 * 2 -- borders
+  local stack_h = content_h + n_sections * 2
   local row = math.max(0, math.floor((vim.o.lines - stack_h) / 2))
   local col = math.floor((vim.o.columns - width) / 2)
 
@@ -408,24 +581,27 @@ local function apply_float_layout(err_lines)
     { key = "input", buf = session.bufs.input },
     { key = "expected", buf = session.bufs.expected },
     { key = "output", buf = session.bufs.output },
-    { key = "stderr", buf = session.bufs.stderr },
   }
 
   local y = row
   for _, sec in ipairs(order) do
-    for _, win in ipairs(session.winids) do
-      if valid_win(win) and vim.api.nvim_win_get_buf(win) == sec.buf then
-        local wincfg = vim.api.nvim_win_get_config(win)
-        wincfg.relative = "editor"
-        wincfg.width = width
-        wincfg.height = heights[sec.key]
-        wincfg.row = y
-        wincfg.col = col
-        pcall(vim.api.nvim_win_set_config, win, wincfg)
-        break
-      end
+    local win = find_win_for_buf(sec.buf)
+    if win then
+      local wincfg = vim.api.nvim_win_get_config(win)
+      wincfg.relative = "editor"
+      wincfg.width = width
+      wincfg.height = heights[sec.key]
+      wincfg.row = y
+      wincfg.col = col
+      pcall(vim.api.nvim_win_set_config, win, wincfg)
     end
     y = y + heights[sec.key] + 2
+  end
+
+  if show_stderr then
+    ensure_float_stderr_win(heights.stderr, width, y, col)
+  else
+    hide_float_stderr_win()
   end
 end
 
@@ -486,8 +662,6 @@ local function render()
     vim.bo[session.bufs.stderr].modifiable = false
   end
 
-  local hh = header_win_height(n)
-
   if session.ui_mode == "sidebar" then
     for _, win in ipairs(session.winids) do
       if valid_win(win) then
@@ -502,20 +676,17 @@ local function render()
           pcall(vim.api.nvim_set_option_value, "winbar", err_lines and "Stderr" or "", { win = win })
         elseif buf == session.bufs.header then
           pcall(vim.api.nvim_set_option_value, "winbar", "Pretest", { win = win })
-          pcall(vim.api.nvim_win_set_height, win, hh)
         end
       end
     end
 
+    local stderr_h = err_lines and math.min(8, #err_lines + 1) or 1
     for _, win in ipairs(session.winids) do
       if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.stderr then
-        if err_lines then
-          pcall(vim.api.nvim_win_set_height, win, math.min(8, #err_lines + 1))
-        else
-          pcall(vim.api.nvim_win_set_height, win, 1)
-        end
+        pcall(vim.api.nvim_win_set_height, win, stderr_h)
       end
     end
+    apply_sidebar_section_heights(stderr_h)
   else
     apply_float_layout(err_lines)
   end
@@ -571,19 +742,8 @@ local function setup_buf_autocmds()
   end
 end
 
-local function configure_win(win)
-  vim.wo[win].number = false
-  vim.wo[win].relativenumber = false
-  vim.wo[win].wrap = false
-  vim.wo[win].signcolumn = "no"
-  vim.wo[win].foldcolumn = "0"
-  vim.wo[win].list = false
-  vim.wo[win].cursorline = false
-end
-
 local function open_sidebar_column()
   local cfg = config.get()
-  local n = #session.problem.tests
   vim.cmd("botright vsplit")
   local root = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_width(root, cfg.sidebar_width)
@@ -606,20 +766,21 @@ local function open_sidebar_column()
     table.insert(session.winids, win)
   end
 
-  pcall(vim.api.nvim_win_set_height, root, header_win_height(n))
   for _, win in ipairs(session.winids) do
     if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.stderr then
       pcall(vim.api.nvim_win_set_height, win, 1)
     end
   end
+  apply_sidebar_section_heights(1)
 end
 
 local function open_float_stack()
   local cfg = config.get()
   local width = math.max(30, math.floor(vim.o.columns * cfg.float_width))
-  local heights = compute_float_heights()
-  local content_h = heights.header + heights.input + heights.expected + heights.output + heights.stderr
-  local stack_h = content_h + 5 * 2
+  -- Stderr float is created later in apply_float_layout only when non-empty.
+  local heights = compute_float_heights(false, 0)
+  local content_h = heights.header + heights.input + heights.expected + heights.output
+  local stack_h = content_h + 4 * 2
   local row = math.max(0, math.floor((vim.o.lines - stack_h) / 2))
   local col = math.floor((vim.o.columns - width) / 2)
 
@@ -628,7 +789,6 @@ local function open_float_stack()
     { key = "input", buf = session.bufs.input, title = " Input " },
     { key = "expected", buf = session.bufs.expected, title = " Expected " },
     { key = "output", buf = session.bufs.output, title = " Output " },
-    { key = "stderr", buf = session.bufs.stderr, title = " Stderr " },
   }
 
   local y = row

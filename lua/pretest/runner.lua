@@ -41,14 +41,14 @@ end
 ---@param ft string
 ---@return string
 function M.bin_path_for(src_path, ft)
-  local cache = vim.fs.joinpath(vim.fn.stdpath("cache") --[[@as string]], "pretest")
-  vim.fn.mkdir(cache, "p")
+  local dir = util.artifact_dir(src_path)
+  vim.fn.mkdir(dir, "p")
   local hash = util.md5(src_path) or "tmp"
   local base = vim.fn.fnamemodify(src_path, ":t:r")
   if ft == "cpp" then
-    return vim.fs.joinpath(cache, string.format("%s_%s.out", base, hash:sub(1, 8)))
+    return vim.fs.joinpath(dir, string.format("%s_%s.out", base, hash:sub(1, 8)))
   end
-  return vim.fs.joinpath(cache, string.format("%s_%s", base, hash:sub(1, 8)))
+  return vim.fs.joinpath(dir, string.format("%s_%s", base, hash:sub(1, 8)))
 end
 
 ---@param src_path string
@@ -60,7 +60,7 @@ function M.compile(src_path, ft, on_done)
     on_done(false, "unsupported filetype: " .. ft)
     return
   end
-  if lang.skip_compile or not lang.compile then
+  if not lang.compile then
     on_done(true, "")
     return
   end

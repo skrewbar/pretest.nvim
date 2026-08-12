@@ -19,7 +19,9 @@ Compile, run, and judge test cases next to your source file. Test data is stored
   dir = vim.fn.expand("~/Programming/pretest.nvim"), -- or your clone path / GitHub url
   lazy = false,
   opts = {
-    save_dir = vim.fn.expand("~/Programming/.cphbin"),
+    -- save_dir = vim.fn.expand("~/cp/.probs"), -- optional; omit to store next to the source
+    -- sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
+    -- float_sections = { header = 1, input = 1, expected = 1, output = 1 },
   },
   keys = {
     { "<leader>tr", "<cmd>Pretest show<cr>", desc = "Pretest show" },
@@ -50,11 +52,13 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 
 pretest.nvim reads and writes problem JSON files that are compatible with the `.prob` schema commonly used by VS Code CPH (independent implementation; not derived from CPH source).
 
-Default path pattern:
+Path pattern (same directory for `.prob` and compile binaries):
 
 ```text
-{save_dir}/.{basename}_{md5(srcPath)}.prob
+{artifact_dir}/.{basename}_{md5(srcPath)}.prob
 ```
+
+`artifact_dir` is `save_dir` when set, otherwise the source file's directory.
 
 ## License
 

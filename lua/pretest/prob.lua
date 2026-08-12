@@ -28,7 +28,7 @@ function M.prob_path(src_path)
     return nil
   end
   local base = vim.fn.fnamemodify(src_path, ":t")
-  local dir = config.get().save_dir
+  local dir = util.artifact_dir(src_path)
   return vim.fs.joinpath(dir, string.format(".%s_%s.prob", base, hash))
 end
 

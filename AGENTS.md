@@ -24,6 +24,7 @@ Do not pull Competitive Companion, online submit, or custom checkers into v1 mod
 
 - Independently implement read/write for the shared JSON schema. **Do not copy CPH (or any GPL) source.**
 - Filename: `.{basename}_{md5(absolute srcPath)}.prob`
+- Artifact directory: optional `save_dir`; if unset, use the source file's directory. `.prob` and binaries share this directory (`util.artifact_dir`).
 - Preserve unknown JSON fields when saving when practical.
 - Do not use CPH trademarks/logos in docs or UI strings. Saying "compatible with `.prob` files" is fine.
 

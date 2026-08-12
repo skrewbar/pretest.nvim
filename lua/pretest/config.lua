@@ -3,32 +3,45 @@ local util = require("pretest.util")
 local M = {}
 
 ---@class pretest.Config
----@field save_dir string
+---@field save_dir string|nil
 ---@field ui "sidebar"|"float"
 ---@field sidebar_width integer
 ---@field float_width number
 ---@field float_height number
 ---@field default_time_limit integer
 ---@field default_memory_limit integer
+---@field sidebar_sections { header: number, input: number, expected: number, output: number }
+---@field float_sections { header: number, input: number, expected: number, output: number }
 ---@field languages table<string, pretest.LangConfig>
 
 ---@class pretest.LangConfig
 ---@field compile? { exec: string|fun(): string, args: string[] }
 ---@field run { exec: string|fun(ctx: pretest.RunCtx): string, args?: string[]|fun(ctx: pretest.RunCtx): string[] }
----@field skip_compile? boolean
 
 ---@class pretest.RunCtx
 ---@field src_path string
 ---@field bin_path string
 
 local defaults = {
-  save_dir = vim.fn.expand("~/Programming/.cphbin"),
+  save_dir = nil,
   ui = "sidebar",
   sidebar_width = 48,
-  float_width = 0.38,
-  float_height = 0.62,
+  float_width = 0.4,
+  float_height = 0.6,
   default_time_limit = 3000,
   default_memory_limit = 1024,
+  sidebar_sections = {
+    header = 1,
+    input = 1,
+    expected = 1,
+    output = 1,
+  },
+  float_sections = {
+    header = 1,
+    input = 1,
+    expected = 1,
+    output = 1,
+  },
   languages = {
     cpp = {
       compile = {
@@ -43,7 +56,6 @@ local defaults = {
       },
     },
     python = {
-      skip_compile = true,
       run = {
         exec = "python3",
         args = function(ctx)
