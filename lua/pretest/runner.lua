@@ -39,12 +39,19 @@ end
 function M.bin_path_for(src_path, ft)
   local dir = util.artifact_dir(src_path)
   vim.fn.mkdir(dir, "p")
-  local hash = util.md5(src_path) or "tmp"
   local base = vim.fn.fnamemodify(src_path, ":t:r")
-  if ft == "cpp" then
-    return vim.fs.joinpath(dir, string.format("%s_%s.out", base, hash:sub(1, 8)))
+  local name
+  -- Hash only when save_dir is shared; next to the source, stem is enough.
+  if util.uses_save_dir() then
+    local hash = util.md5(src_path) or "tmp"
+    name = string.format("%s_%s", base, hash:sub(1, 8))
+  else
+    name = base
   end
-  return vim.fs.joinpath(dir, string.format("%s_%s", base, hash:sub(1, 8)))
+  if ft == "cpp" then
+    return vim.fs.joinpath(dir, name .. ".out")
+  end
+  return vim.fs.joinpath(dir, name)
 end
 
 ---@param src_path string

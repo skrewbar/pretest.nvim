@@ -55,10 +55,16 @@ pretest.nvim reads and writes problem JSON files that are compatible with the `.
 Path pattern (same directory for `.prob` and compile binaries):
 
 ```text
-{artifact_dir}/.{basename}_{md5(srcPath)}.prob
+# next to the source (default)
+{src_dir}/.{basename}.prob
+{src_dir}/{stem}.out
+
+# when save_dir is set (hash avoids collisions across problems)
+{save_dir}/.{basename}_{md5(srcPath)}.prob
+{save_dir}/{stem}_{md5(srcPath)[1:8]}.out
 ```
 
-`artifact_dir` is `save_dir` when set, otherwise the source file's directory.
+`artifact_dir` is `save_dir` when set, otherwise the source file's directory. The MD5 suffix is only added when `save_dir` is set.
 
 ## License
 

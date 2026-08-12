@@ -12,13 +12,19 @@ function M.abspath(path)
   return vim.fn.fnamemodify(path, ":p")
 end
 
+---Whether artifacts are stored in a shared `save_dir` (names may collide).
+---@return boolean
+function M.uses_save_dir()
+  local save_dir = require("pretest.config").get().save_dir
+  return type(save_dir) == "string" and save_dir ~= ""
+end
+
 ---Directory for `.prob` and binaries: `save_dir` if set, else source file's directory.
 ---@param src_path string
 ---@return string
 function M.artifact_dir(src_path)
-  local save_dir = require("pretest.config").get().save_dir
-  if type(save_dir) == "string" and save_dir ~= "" then
-    return vim.fn.expand(save_dir)
+  if M.uses_save_dir() then
+    return vim.fn.expand(require("pretest.config").get().save_dir)
   end
   return vim.fn.fnamemodify(M.abspath(src_path), ":h")
 end
