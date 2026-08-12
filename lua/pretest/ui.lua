@@ -796,6 +796,40 @@ local function setup_buf_autocmds()
   for _, buf in ipairs({ session.bufs.header, session.bufs.output, session.bufs.stderr }) do
     map_ui_keys(buf)
   end
+
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    group = group,
+    buffer = session.bufs.header,
+    callback = function()
+      if not session or session.applying then
+        return
+      end
+      local win = vim.api.nvim_get_current_win()
+      if vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
+        return
+      end
+      local row = vim.api.nvim_win_get_cursor(win)[1] - 1
+      local n = #session.problem.tests
+      if n == 0 then
+        return
+      end
+      local layout = header_layout(n)
+      if row < layout.cases_start or row >= layout.cases_start + n then
+        return
+      end
+      local index = row - layout.cases_start + 1
+      if index == session.index then
+        return
+      end
+      M.flush_edits()
+      session.index = index
+      render()
+      -- Keep focus on the selected case row in the header.
+      session.applying = true
+      pcall(vim.api.nvim_win_set_cursor, win, { layout.cases_start + index, 0 })
+      session.applying = false
+    end,
+  })
 end
 
 local function open_sidebar_column()
@@ -1006,6 +1040,22 @@ function M.toggle_hints()
   end
 end
 
+---@param win integer|nil
+local function sync_header_cursor(win)
+  if not session or session.index < 1 then
+    return
+  end
+  win = win or vim.api.nvim_get_current_win()
+  if not valid_win(win) or vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
+    return
+  end
+  local layout = header_layout(#session.problem.tests)
+  local row = layout.cases_start + session.index - 1
+  session.applying = true
+  pcall(vim.api.nvim_win_set_cursor, win, { row + 1, 0 })
+  session.applying = false
+end
+
 function M.next_case()
   if not session or #session.problem.tests == 0 then
     return
@@ -1013,6 +1063,7 @@ function M.next_case()
   M.flush_edits()
   session.index = session.index % #session.problem.tests + 1
   render()
+  sync_header_cursor()
 end
 
 function M.prev_case()
@@ -1025,6 +1076,7 @@ function M.prev_case()
     session.index = #session.problem.tests
   end
   render()
+  sync_header_cursor()
 end
 
 ---@param index integer|nil

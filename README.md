@@ -9,7 +9,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - C++ and Python runners
 - Sidebar or floating UI (toggle at runtime)
 - Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
-- Navigate test cases with `<C-n>` / `<C-p>`
+- Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Verdicts: AC, WA, RE, TLE, CE
 
