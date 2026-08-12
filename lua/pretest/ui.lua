@@ -315,8 +315,11 @@ local function format_case_line(i, n, idx, result)
     return num, 0, #num, nil, nil, verdict_hl(verdict)
   end
 
-  local time_s = result.time_ms and string.format("  %.0fms", result.time_ms) or ""
-  local line = num .. " " .. verdict .. time_s
+  -- Pad so time always starts at the same column (longest shown: "Running").
+  local VERDICT_WIDTH = 7
+  local verdict_s = string.format("%-" .. VERDICT_WIDTH .. "s", verdict)
+  local time_s = result.time_ms and string.format(" %.0fms", result.time_ms) or ""
+  local line = num .. " " .. verdict_s .. time_s
   local vcol = #num + 1
   return line, 0, #num, vcol, vcol + #verdict, verdict_hl(verdict)
 end
