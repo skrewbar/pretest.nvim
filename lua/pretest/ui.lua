@@ -228,6 +228,7 @@ end
 
 ---@class pretest.HeaderLayout
 ---@field name_row integer
+---@field cases_label_row integer
 ---@field cases_start integer
 ---@field hint_base integer|nil
 ---@field min_height integer
@@ -240,12 +241,16 @@ local function header_layout(n)
   local show_hints = get_show_hints()
   local hint_n = show_hints and #HINT_SEGMENTS or 0
   local name_row = 0
-  local cases_start = 1
+  -- blank, "Testcases:", then cases
+  local cases_label_row = 2
+  local cases_start = 3
   -- blank after cases only when hints follow
   local hint_base = show_hints and (cases_start + n + 1) or nil
-  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 1 + n + (show_hints and (1 + hint_n) or 0)))
+  -- name + blank + label + cases + optional (blank + hints)
+  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 3 + n + (show_hints and (1 + hint_n) or 0)))
   return {
     name_row = name_row,
+    cases_label_row = cases_label_row,
     cases_start = cases_start,
     hint_base = hint_base,
     min_height = min_height,
@@ -660,7 +665,11 @@ local function render()
   local verdict = result and result.verdict or "Pending"
   local layout = header_layout(n)
 
-  local header = { string.format("%s", session.problem.name or "Pretest") }
+  local header = {
+    string.format("%s", session.problem.name or "Pretest"),
+    "",
+    "Testcases:",
+  }
   for i = 1, n do
     local line = format_case_line(i, n, idx, session.results[i])
     header[#header + 1] = line
