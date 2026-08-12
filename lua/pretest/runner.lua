@@ -10,20 +10,6 @@ local M = {}
 ---@field time_ms number|nil
 ---@field code integer|nil
 
----@param lang_cfg pretest.LangConfig
----@param key "exec"|"args"
----@param ctx pretest.RunCtx
----@param fallback any
-local function resolve(lang_cfg_field, ctx, fallback)
-  if lang_cfg_field == nil then
-    return fallback
-  end
-  if type(lang_cfg_field) == "function" then
-    return lang_cfg_field(ctx)
-  end
-  return lang_cfg_field
-end
-
 ---@param args string[]
 ---@param ctx pretest.RunCtx
 ---@return string[]
@@ -35,6 +21,16 @@ local function expand_args(args, ctx)
     table.insert(out, a)
   end
   return out
+end
+
+---@param field pretest.LangExec|pretest.LangArgs|nil
+---@param ctx pretest.RunCtx
+---@return string|string[]|nil
+local function eval_field(field, ctx)
+  if type(field) == "function" then
+    return field(ctx)
+  end
+  return field
 end
 
 ---@param src_path string
@@ -69,25 +65,32 @@ function M.compile(src_path, ft, on_done)
     src_path = util.abspath(src_path),
     bin_path = M.bin_path_for(src_path, ft),
   }
-  local exec = resolve(lang.compile.exec, ctx, util.default_cpp_compiler())
-  local raw_args = resolve(lang.compile.args, ctx, {})
+  local exec = eval_field(lang.compile.exec, ctx)
+  if type(exec) ~= "string" then
+    on_done(false, "compile.exec not configured for filetype: " .. ft)
+    return
+  end
+  local raw_args = eval_field(lang.compile.args, ctx)
   local args = expand_args(type(raw_args) == "table" and raw_args or {}, ctx)
   local cmd = { exec }
   vim.list_extend(cmd, args)
 
-  vim.system(cmd, { text = true, cwd = vim.fn.fnamemodify(ctx.src_path, ":h") }, function(obj)
+  local ok, err = pcall(vim.system, cmd, { text = true, cwd = vim.fn.fnamemodify(ctx.src_path, ":h") }, function(obj)
     vim.schedule(function()
       if obj.code == 0 then
         on_done(true, obj.stderr or "")
       else
-        local err = table.concat({
+        local msg = table.concat({
           obj.stderr or "",
           obj.stdout or "",
         }, "\n")
-        on_done(false, vim.trim(err))
+        on_done(false, vim.trim(msg))
       end
     end)
   end)
+  if not ok then
+    on_done(false, tostring(err))
+  end
 end
 
 ---Run one testcase with CompetiTest-style timing:
@@ -115,11 +118,18 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
     src_path = util.abspath(src_path),
     bin_path = M.bin_path_for(src_path, ft),
   }
-  local exec = resolve(lang.run.exec, ctx, "")
-  local args = resolve(lang.run.args, ctx, {})
-  if type(args) == "function" then
-    args = args(ctx)
+  local exec = eval_field(lang.run.exec, ctx)
+  if type(exec) ~= "string" then
+    on_done({
+      verdict = "RE",
+      stdout = "",
+      stderr = "run.exec not configured for filetype: " .. tostring(ft),
+      time_ms = 0,
+      code = -1,
+    })
+    return
   end
+  local args = eval_field(lang.run.args, ctx)
   if type(args) ~= "table" then
     args = {}
   end

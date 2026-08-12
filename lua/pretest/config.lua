@@ -1,5 +1,3 @@
-local util = require("pretest.util")
-
 local M = {}
 
 ---@class pretest.Config
@@ -14,13 +12,24 @@ local M = {}
 ---@field float_sections { header: number, input: number, expected: number, output: number }
 ---@field languages table<string, pretest.LangConfig>
 
----@class pretest.LangConfig
----@field compile? { exec: string|fun(): string, args: string[] }
----@field run { exec: string|fun(ctx: pretest.RunCtx): string, args?: string[]|fun(ctx: pretest.RunCtx): string[] }
-
 ---@class pretest.RunCtx
 ---@field src_path string
 ---@field bin_path string
+
+---@alias pretest.LangExec string|(fun(ctx: pretest.RunCtx): string)
+---@alias pretest.LangArgs string[]|(fun(ctx: pretest.RunCtx): string[])
+
+---@class pretest.CompileConfig
+---@field exec pretest.LangExec
+---@field args? pretest.LangArgs
+
+---@class pretest.RunConfig
+---@field exec pretest.LangExec
+---@field args? pretest.LangArgs
+
+---@class pretest.LangConfig
+---@field compile? pretest.CompileConfig
+---@field run pretest.RunConfig
 
 local defaults = {
   save_dir = nil,
