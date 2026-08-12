@@ -31,7 +31,7 @@ Do not pull Competitive Companion, online submit, or custom checkers into v1 mod
 ## UI editing constraints
 
 - **Input** and **Expected** bodies are editable in their section buffers.
-- Problem **timeLimit** / **memoryLimit** are edited from the header limits line (`<CR>` → prompts); other header lines, Output, and Stderr are read-only.
+- Problem **timeLimit** / **memoryLimit** are edited via `:Pretest edit_limits` (prompts); header limits line, other header lines, Output, and Stderr are read-only.
 - Persist Input/Expected on `:w`, before TC switch (`<C-n>`/`<C-p>`/header cursor), and before `run`. Limits persist immediately on confirm.
 - Stderr section is shown only when non-empty.
 

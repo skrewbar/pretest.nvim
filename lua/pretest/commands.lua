@@ -13,6 +13,7 @@ local subcommands = {
   "add",
   "edit",
   "delete",
+  "edit_limits",
 }
 
 ---@param indices string[]|nil
@@ -79,6 +80,8 @@ function M.command(args)
   elseif sub == "delete" then
     local idx = tonumber(parts[2])
     ui.delete_testcase(idx)
+  elseif sub == "edit_limits" then
+    ui.edit_limits()
   else
     util.notify("unknown subcommand: " .. sub, vim.log.levels.ERROR)
   end

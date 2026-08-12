@@ -785,68 +785,6 @@ local function map_ui_keys(buf)
   end, opts)
 end
 
-local function edit_problem_limits()
-  if not session or not session.problem then
-    return
-  end
-  local cfg = config.get()
-  local cur_tl = session.problem.timeLimit or cfg.default_time_limit
-  local cur_ml = session.problem.memoryLimit or cfg.default_memory_limit
-
-  local function parse_positive_int(s, label)
-    local n = tonumber(s)
-    if not n or n ~= math.floor(n) or n <= 0 then
-      util.notify("invalid " .. label, vim.log.levels.ERROR)
-      return nil
-    end
-    return n
-  end
-
-  vim.ui.input({ prompt = "Time limit (ms): ", default = tostring(cur_tl) }, function(time_s)
-    if time_s == nil then
-      return
-    end
-    local time_n = parse_positive_int(time_s, "time limit")
-    if not time_n then
-      return
-    end
-    vim.ui.input({ prompt = "Memory limit (MB): ", default = tostring(cur_ml) }, function(mem_s)
-      if mem_s == nil then
-        return
-      end
-      local mem_n = parse_positive_int(mem_s, "memory limit")
-      if not mem_n then
-        return
-      end
-      session.problem.timeLimit = time_n
-      session.problem.memoryLimit = mem_n
-      prob.save(session.problem, session.prob_path)
-      if M.is_open() then
-        render()
-      end
-      util.notify(string.format("limits: %dms / %dMB", time_n, mem_n))
-    end)
-  end)
-end
-
-local function map_header_keys(buf)
-  map_ui_keys(buf)
-  vim.keymap.set("n", "<CR>", function()
-    if not session then
-      return
-    end
-    local win = vim.api.nvim_get_current_win()
-    if vim.api.nvim_win_get_buf(win) ~= buf then
-      return
-    end
-    local row = vim.api.nvim_win_get_cursor(win)[1] - 1
-    local layout = header_layout(#session.problem.tests)
-    if row == layout.limits_row then
-      edit_problem_limits()
-    end
-  end, { buffer = buf, silent = true, nowait = true })
-end
-
 local function setup_buf_autocmds()
   if not session then
     return
@@ -864,8 +802,7 @@ local function setup_buf_autocmds()
     })
     map_ui_keys(buf)
   end
-  map_header_keys(session.bufs.header)
-  for _, buf in ipairs({ session.bufs.output, session.bufs.stderr }) do
+  for _, buf in ipairs({ session.bufs.header, session.bufs.output, session.bufs.stderr }) do
     map_ui_keys(buf)
   end
 
@@ -1195,6 +1132,51 @@ function M.add_testcase()
   else
     render()
   end
+end
+
+function M.edit_limits()
+  local s = M.ensure_session()
+  if not s then
+    return
+  end
+  local cfg = config.get()
+  local cur_tl = session.problem.timeLimit or cfg.default_time_limit
+  local cur_ml = session.problem.memoryLimit or cfg.default_memory_limit
+
+  local function parse_positive_int(val, label)
+    local n = tonumber(val)
+    if not n or n ~= math.floor(n) or n <= 0 then
+      util.notify("invalid " .. label, vim.log.levels.ERROR)
+      return nil
+    end
+    return n
+  end
+
+  vim.ui.input({ prompt = "Time limit (ms): ", default = tostring(cur_tl) }, function(time_s)
+    if time_s == nil then
+      return
+    end
+    local time_n = parse_positive_int(time_s, "time limit")
+    if not time_n then
+      return
+    end
+    vim.ui.input({ prompt = "Memory limit (MB): ", default = tostring(cur_ml) }, function(mem_s)
+      if mem_s == nil then
+        return
+      end
+      local mem_n = parse_positive_int(mem_s, "memory limit")
+      if not mem_n then
+        return
+      end
+      session.problem.timeLimit = time_n
+      session.problem.memoryLimit = mem_n
+      prob.save(session.problem, session.prob_path)
+      if M.is_open() then
+        render()
+      end
+      util.notify(string.format("limits: %dms / %dMB", time_n, mem_n))
+    end)
+  end)
 end
 
 ---@param index integer|nil
