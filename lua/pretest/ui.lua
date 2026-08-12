@@ -32,6 +32,7 @@ local preferred_ui = nil
 local preferred_show_hints = nil
 
 local HEADER_NS = vim.api.nvim_create_namespace("pretest_header")
+local EMPTY_EOL_NS = vim.api.nvim_create_namespace("pretest_empty_eol")
 local HEADER_HEIGHT_CAP = 36
 local highlights_setup = false
 
@@ -73,14 +74,39 @@ local function valid_buf(buf)
   return buf and vim.api.nvim_buf_is_valid(buf)
 end
 
-local function configure_win(win)
+---@param win integer
+---@param kind "header"|"body"
+local function configure_win(win, kind)
+  local body = kind == "body"
   vim.wo[win].number = false
   vim.wo[win].relativenumber = false
   vim.wo[win].wrap = false
   vim.wo[win].signcolumn = "no"
   vim.wo[win].foldcolumn = "0"
-  vim.wo[win].list = false
+  vim.wo[win].list = body
+  if body then
+    vim.wo[win].listchars = "tab:>·,trail:-"
+  end
   vim.wo[win].cursorline = false
+end
+
+---Mark completely empty lines with an eol indicator (listchars eol would mark every line).
+---@param buf integer
+local function apply_empty_eol_marks(buf)
+  if not valid_buf(buf) then
+    return
+  end
+  vim.api.nvim_buf_clear_namespace(buf, EMPTY_EOL_NS, 0, -1)
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  for i, line in ipairs(lines) do
+    if line == "" then
+      -- overlay at col 0: eol virt_text on empty lines sits one column in and looks indented.
+      vim.api.nvim_buf_set_extmark(buf, EMPTY_EOL_NS, i - 1, 0, {
+        virt_text = { { "¬", "NonText" } },
+        virt_text_pos = "overlay",
+      })
+    end
+  end
 end
 
 local function set_lines(buf, lines)
@@ -601,12 +627,48 @@ local function ensure_float_stderr_win(height, width, row, col)
     title_pos = "center",
     zindex = 55,
   })
-  configure_win(win)
+  configure_win(win, "body")
   table.insert(session.winids, win)
   return win
 end
 
 local function hide_float_stderr_win()
+  local win = find_win_for_buf(session.bufs.stderr)
+  if win then
+    pcall(vim.api.nvim_win_close, win, true)
+    prune_winids()
+  end
+end
+
+---@param height integer
+---@return integer|nil
+local function ensure_sidebar_stderr_win(height)
+  local win = find_win_for_buf(session.bufs.stderr)
+  if win then
+    pcall(vim.api.nvim_win_set_height, win, height)
+    pcall(vim.api.nvim_set_option_value, "winbar", "Stderr", { win = win })
+    return win
+  end
+  local out_win = find_win_for_buf(session.bufs.output)
+  if not out_win then
+    return nil
+  end
+  local prev = vim.api.nvim_get_current_win()
+  vim.api.nvim_set_current_win(out_win)
+  vim.cmd("belowright split")
+  win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(win, session.bufs.stderr)
+  configure_win(win, "body")
+  pcall(vim.api.nvim_win_set_height, win, height)
+  pcall(vim.api.nvim_set_option_value, "winbar", "Stderr", { win = win })
+  table.insert(session.winids, win)
+  if valid_win(prev) then
+    pcall(vim.api.nvim_set_current_win, prev)
+  end
+  return win
+end
+
+local function hide_sidebar_stderr_win()
   local win = find_win_for_buf(session.bufs.stderr)
   if win then
     pcall(vim.api.nvim_win_close, win, true)
@@ -727,6 +789,15 @@ local function render()
     vim.bo[session.bufs.stderr].modifiable = false
   end
 
+  for _, buf in ipairs({
+    session.bufs.input,
+    session.bufs.expected,
+    session.bufs.output,
+    session.bufs.stderr,
+  }) do
+    apply_empty_eol_marks(buf)
+  end
+
   if session.ui_mode == "sidebar" then
     for _, win in ipairs(session.winids) do
       if valid_win(win) then
@@ -737,19 +808,18 @@ local function render()
           pcall(vim.api.nvim_set_option_value, "winbar", "Expected", { win = win })
         elseif buf == session.bufs.output then
           pcall(vim.api.nvim_set_option_value, "winbar", "Output", { win = win })
-        elseif buf == session.bufs.stderr then
-          pcall(vim.api.nvim_set_option_value, "winbar", err_lines and "Stderr" or "", { win = win })
         elseif buf == session.bufs.header then
           pcall(vim.api.nvim_set_option_value, "winbar", "Pretest", { win = win })
         end
       end
     end
 
-    local stderr_h = err_lines and math.min(8, #err_lines + 1) or 1
-    for _, win in ipairs(session.winids) do
-      if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.stderr then
-        pcall(vim.api.nvim_win_set_height, win, stderr_h)
-      end
+    local stderr_h = 0
+    if err_lines then
+      stderr_h = math.min(8, #err_lines + 1)
+      ensure_sidebar_stderr_win(stderr_h)
+    else
+      hide_sidebar_stderr_win()
     end
     apply_sidebar_section_heights(stderr_h)
   else
@@ -800,6 +870,13 @@ local function setup_buf_autocmds()
         util.notify("saved")
       end,
     })
+    vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+      group = group,
+      buffer = buf,
+      callback = function()
+        apply_empty_eol_marks(buf)
+      end,
+    })
     map_ui_keys(buf)
   end
   for _, buf in ipairs({ session.bufs.header, session.bufs.output, session.bufs.stderr }) do
@@ -847,7 +924,7 @@ local function open_sidebar_column()
   local root = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_width(root, cfg.sidebar_width)
   vim.api.nvim_win_set_buf(root, session.bufs.header)
-  configure_win(root)
+  configure_win(root, "header")
   session.main_win = root
   table.insert(session.winids, root)
 
@@ -855,22 +932,16 @@ local function open_sidebar_column()
     { buf = session.bufs.input },
     { buf = session.bufs.expected },
     { buf = session.bufs.output },
-    { buf = session.bufs.stderr },
   }
   for _, sec in ipairs(sections) do
     vim.cmd("belowright split")
     local win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(win, sec.buf)
-    configure_win(win)
+    configure_win(win, "body")
     table.insert(session.winids, win)
   end
 
-  for _, win in ipairs(session.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.stderr then
-      pcall(vim.api.nvim_win_set_height, win, 1)
-    end
-  end
-  apply_sidebar_section_heights(1)
+  apply_sidebar_section_heights(0)
 end
 
 local function open_float_stack()
@@ -905,7 +976,7 @@ local function open_float_stack()
       title_pos = "center",
       zindex = 50 + i,
     })
-    configure_win(win)
+    configure_win(win, sec.key == "header" and "header" or "body")
     if i == 1 then
       session.main_win = win
     end
