@@ -11,6 +11,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
 - Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
+- Edit problem time/memory limits from the header limits line (`<CR>`)
 - Verdicts: AC, WA, RE, TLE, CE
 
 ## Install (lazy.nvim)

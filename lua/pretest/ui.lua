@@ -228,6 +228,7 @@ end
 
 ---@class pretest.HeaderLayout
 ---@field name_row integer
+---@field limits_row integer
 ---@field cases_label_row integer
 ---@field cases_start integer
 ---@field hint_base integer|nil
@@ -241,15 +242,17 @@ local function header_layout(n)
   local show_hints = get_show_hints()
   local hint_n = show_hints and #HINT_SEGMENTS or 0
   local name_row = 0
-  -- blank, "Testcases:", then cases
-  local cases_label_row = 2
-  local cases_start = 3
+  local limits_row = 1
+  -- name, limits, blank, "Testcases:", then cases
+  local cases_label_row = 3
+  local cases_start = 4
   -- blank after cases only when hints follow
   local hint_base = show_hints and (cases_start + n + 1) or nil
-  -- name + blank + label + cases + optional (blank + hints)
-  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 3 + n + (show_hints and (1 + hint_n) or 0)))
+  -- name + limits + blank + label + cases + optional (blank + hints)
+  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 4 + n + (show_hints and (1 + hint_n) or 0)))
   return {
     name_row = name_row,
+    limits_row = limits_row,
     cases_label_row = cases_label_row,
     cases_start = cases_start,
     hint_base = hint_base,
@@ -664,9 +667,12 @@ local function render()
   local result = current_result()
   local verdict = result and result.verdict or "Pending"
   local layout = header_layout(n)
+  local tl = session.problem.timeLimit or config.get().default_time_limit
+  local ml = session.problem.memoryLimit or config.get().default_memory_limit
 
   local header = {
     string.format("%s", session.problem.name or "Pretest"),
+    string.format("TL: %dms  ML: %dMB", tl, ml),
     "",
     "Testcases:",
   }
@@ -776,6 +782,68 @@ local function map_ui_keys(buf)
   end, opts)
 end
 
+local function edit_problem_limits()
+  if not session or not session.problem then
+    return
+  end
+  local cfg = config.get()
+  local cur_tl = session.problem.timeLimit or cfg.default_time_limit
+  local cur_ml = session.problem.memoryLimit or cfg.default_memory_limit
+
+  local function parse_positive_int(s, label)
+    local n = tonumber(s)
+    if not n or n ~= math.floor(n) or n <= 0 then
+      util.notify("invalid " .. label, vim.log.levels.ERROR)
+      return nil
+    end
+    return n
+  end
+
+  vim.ui.input({ prompt = "Time limit (ms): ", default = tostring(cur_tl) }, function(time_s)
+    if time_s == nil then
+      return
+    end
+    local time_n = parse_positive_int(time_s, "time limit")
+    if not time_n then
+      return
+    end
+    vim.ui.input({ prompt = "Memory limit (MB): ", default = tostring(cur_ml) }, function(mem_s)
+      if mem_s == nil then
+        return
+      end
+      local mem_n = parse_positive_int(mem_s, "memory limit")
+      if not mem_n then
+        return
+      end
+      session.problem.timeLimit = time_n
+      session.problem.memoryLimit = mem_n
+      prob.save(session.problem, session.prob_path)
+      if M.is_open() then
+        render()
+      end
+      util.notify(string.format("limits: %dms / %dMB", time_n, mem_n))
+    end)
+  end)
+end
+
+local function map_header_keys(buf)
+  map_ui_keys(buf)
+  vim.keymap.set("n", "<CR>", function()
+    if not session then
+      return
+    end
+    local win = vim.api.nvim_get_current_win()
+    if vim.api.nvim_win_get_buf(win) ~= buf then
+      return
+    end
+    local row = vim.api.nvim_win_get_cursor(win)[1] - 1
+    local layout = header_layout(#session.problem.tests)
+    if row == layout.limits_row then
+      edit_problem_limits()
+    end
+  end, { buffer = buf, silent = true, nowait = true })
+end
+
 local function setup_buf_autocmds()
   if not session then
     return
@@ -793,7 +861,8 @@ local function setup_buf_autocmds()
     })
     map_ui_keys(buf)
   end
-  for _, buf in ipairs({ session.bufs.header, session.bufs.output, session.bufs.stderr }) do
+  map_header_keys(session.bufs.header)
+  for _, buf in ipairs({ session.bufs.output, session.bufs.stderr }) do
     map_ui_keys(buf)
   end
 
