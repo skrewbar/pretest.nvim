@@ -45,7 +45,7 @@ local defaults = {
   languages = {
     cpp = {
       compile = {
-        exec = util.default_cpp_compiler,
+        exec = "g++",
         args = { "-std=gnu++23", "-Wall", "-O2", "-o", "$bin", "$src" },
       },
       run = {

@@ -142,14 +142,6 @@ function M.write_file(path, content)
   return true
 end
 
----@return string
-function M.default_cpp_compiler()
-  if vim.fn.executable("g++-16") == 1 then
-    return "g++-16"
-  end
-  return "g++"
-end
-
 ---@param bufnr integer|nil
 ---@return string|nil, string|nil # path, filetype
 function M.source_from_buf(bufnr)
