@@ -8,6 +8,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 
 - C++ and Python runners
 - Sidebar or floating UI (toggle at runtime)
+- Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
 - Navigate test cases with `<C-n>` / `<C-p>`
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Verdicts: AC, WA, RE, TLE, CE
@@ -20,12 +21,14 @@ Compile, run, and judge test cases next to your source file. Test data is stored
   lazy = false,
   opts = {
     -- save_dir = vim.fn.expand("~/cp/.probs"), -- optional; omit to store next to the source
+    -- show_header_hints = true, -- default; starting value for :Pretest toggle_hints
     -- sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
     -- float_sections = { header = 1, input = 1, expected = 1, output = 1 },
   },
   keys = {
     { "<leader>tr", "<cmd>Pretest show<cr>", desc = "Pretest show" },
     { "<leader>tt", "<cmd>Pretest toggle_ui<cr>", desc = "Pretest toggle UI" },
+    { "<leader>th", "<cmd>Pretest toggle_hints<cr>", desc = "Pretest toggle hints" },
     { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Pretest run" },
     { "<leader>to", "<cmd>Pretest run_current<cr>", desc = "Pretest run current" },
     { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Pretest add" },
@@ -40,6 +43,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 ```vim
 :Pretest show
 :Pretest toggle_ui
+:Pretest toggle_hints
 :Pretest run [index...]
 :Pretest run_current
 :Pretest run_no_compile [index...]

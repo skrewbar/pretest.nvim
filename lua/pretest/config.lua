@@ -8,6 +8,7 @@ local M = {}
 ---@field float_height number
 ---@field default_time_limit integer
 ---@field default_memory_limit integer
+---@field show_header_hints boolean
 ---@field sidebar_sections { header: number, input: number, expected: number, output: number }
 ---@field float_sections { header: number, input: number, expected: number, output: number }
 ---@field languages table<string, pretest.LangConfig>
@@ -39,6 +40,7 @@ local defaults = {
   float_height = 0.6,
   default_time_limit = 3000,
   default_memory_limit = 1024,
+  show_header_hints = true,
   sidebar_sections = {
     header = 1,
     input = 1,

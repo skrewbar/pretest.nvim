@@ -27,6 +27,10 @@ local session = nil
 ---@type "sidebar"|"float"|nil
 local preferred_ui = nil
 
+---Remembers header hint visibility for this Neovim session (falls back to config).
+---@type boolean|nil
+local preferred_show_hints = nil
+
 local HEADER_NS = vim.api.nvim_create_namespace("pretest_header")
 local HEADER_HEIGHT_CAP = 36
 local highlights_setup = false
@@ -46,6 +50,19 @@ end
 ---@param mode "sidebar"|"float"
 local function set_preferred_ui(mode)
   preferred_ui = mode
+end
+
+---@return boolean
+local function get_show_hints()
+  if preferred_show_hints ~= nil then
+    return preferred_show_hints
+  end
+  return config.get().show_header_hints ~= false
+end
+
+---@param show boolean
+local function set_show_hints(show)
+  preferred_show_hints = show
 end
 
 local function valid_win(win)
@@ -209,12 +226,38 @@ function M.setup()
   })
 end
 
+---@class pretest.HeaderLayout
+---@field name_row integer
+---@field cases_start integer
+---@field hint_base integer|nil
+---@field min_height integer
+---@field show_hints boolean
+---@field n integer
+
+---@param n integer
+---@return pretest.HeaderLayout
+local function header_layout(n)
+  local show_hints = get_show_hints()
+  local hint_n = show_hints and #HINT_SEGMENTS or 0
+  local name_row = 0
+  local cases_start = 1
+  -- blank after cases only when hints follow
+  local hint_base = show_hints and (cases_start + n + 1) or nil
+  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 1 + n + (show_hints and (1 + hint_n) or 0)))
+  return {
+    name_row = name_row,
+    cases_start = cases_start,
+    hint_base = hint_base,
+    min_height = min_height,
+    show_hints = show_hints,
+    n = n,
+  }
+end
+
 ---@param n integer
 ---@return integer
 local function header_content_min(n)
-  local hint_n = #HINT_SEGMENTS
-  -- name + cases + blank + hints (floor so TC list stays readable)
-  return math.min(HEADER_HEIGHT_CAP, math.max(4, 2 + n + hint_n))
+  return header_layout(n).min_height
 end
 
 ---@param verdict string|nil
@@ -271,16 +314,16 @@ local function format_case_line(i, n, idx, result)
 end
 
 ---@param buf integer
----@param n integer
+---@param layout pretest.HeaderLayout
 ---@param idx integer
 ---@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
-local function apply_header_marks(buf, n, idx, hint_marks)
+local function apply_header_marks(buf, layout, idx, hint_marks)
   vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, 0, -1)
+  local n = layout.n
   for i = 1, n do
-    local row = i -- 0-based: line 0 is name, cases start at 1
+    local row = layout.cases_start + i - 1
     local result = session.results[i]
     local line, num_col, num_end, vcol, vend, hl = format_case_line(i, n, idx, result)
-    -- line already set; only marks
     if i == idx then
       vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, num_col, {
         end_col = num_end,
@@ -300,13 +343,13 @@ local function apply_header_marks(buf, n, idx, hint_marks)
     end
   end
 
-  -- Hint lines follow a blank line after the case list (row = 2 + n + offset).
-  local hint_base = 2 + n
-  for _, m in ipairs(hint_marks or {}) do
-    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, hint_base + m.row, m.col, {
-      end_col = m.end_col,
-      hl_group = m.hl,
-    })
+  if layout.hint_base and hint_marks then
+    for _, m in ipairs(hint_marks) do
+      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.hint_base + m.row, m.col, {
+        end_col = m.end_col,
+        hl_group = m.hl,
+      })
+    end
   end
 end
 
@@ -615,23 +658,27 @@ local function render()
   local idx = session.index
   local result = current_result()
   local verdict = result and result.verdict or "Pending"
+  local layout = header_layout(n)
 
   local header = { string.format("%s", session.problem.name or "Pretest") }
   for i = 1, n do
     local line = format_case_line(i, n, idx, session.results[i])
     header[#header + 1] = line
   end
-  header[#header + 1] = ""
-  local hint_lines, hint_marks = build_hint_lines()
-  for _, line in ipairs(hint_lines) do
-    header[#header + 1] = line
+  local hint_marks = {}
+  if layout.show_hints then
+    header[#header + 1] = ""
+    local hint_lines
+    hint_lines, hint_marks = build_hint_lines()
+    for _, line in ipairs(hint_lines) do
+      header[#header + 1] = line
+    end
   end
-
 
   set_lines(session.bufs.header, header)
   vim.bo[session.bufs.header].modifiable = false
   vim.bo[session.bufs.header].modified = false
-  apply_header_marks(session.bufs.header, n, idx, hint_marks)
+  apply_header_marks(session.bufs.header, layout, idx, hint_marks)
 
   local tc = session.problem.tests[idx]
   local input_lines = tc and util.split_lines(tc.input) or { "" }
@@ -940,6 +987,13 @@ function M.toggle_ui_mode()
   else
     session.ui_mode = next_mode
     util.notify("UI mode: " .. next_mode)
+  end
+end
+
+function M.toggle_hints()
+  set_show_hints(not get_show_hints())
+  if M.is_open() then
+    render()
   end
 end
 

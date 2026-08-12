@@ -6,6 +6,7 @@ local M = {}
 local subcommands = {
   "show",
   "toggle_ui",
+  "toggle_hints",
   "run",
   "run_current",
   "run_no_compile",
@@ -51,6 +52,8 @@ function M.command(args)
     ui.toggle()
   elseif sub == "toggle_ui" then
     ui.toggle_ui_mode()
+  elseif sub == "toggle_hints" then
+    ui.toggle_hints()
   elseif sub == "run" then
     local rest = vim.list_slice(parts, 2)
     M.run(parse_indices(rest), true)
