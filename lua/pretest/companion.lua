@@ -218,6 +218,7 @@ local function store_testcases(bufnr, task)
   end
 
   local existing, ppath = prob.load_or_create(path)
+  -- Companion payload is authoritative for name, limits, and other metadata.
   local incoming = prob.from_companion(task, path)
   local cfg = config.get().companion
 

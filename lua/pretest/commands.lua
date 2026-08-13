@@ -14,6 +14,7 @@ local subcommands = {
   "edit",
   "delete",
   "edit_limits",
+  "edit_name",
   "receive",
 }
 
@@ -91,6 +92,8 @@ function M.command(args)
     ui.delete_testcase(idx)
   elseif sub == "edit_limits" then
     ui.edit_limits()
+  elseif sub == "edit_name" then
+    ui.edit_name()
   elseif sub == "receive" then
     local companion = require("pretest.companion")
     local mode = parts[2]

@@ -1634,6 +1634,31 @@ function M.edit_limits()
   end)
 end
 
+function M.edit_name()
+  local s = M.ensure_session()
+  if not s then
+    return
+  end
+  local cur = session.problem.name or "Pretest"
+
+  vim.ui.input({ prompt = "Problem name: ", default = cur }, function(name_s)
+    if name_s == nil then
+      return
+    end
+    local name = vim.trim(name_s:gsub("%s+", " "))
+    if name == "" then
+      util.notify("invalid problem name", vim.log.levels.ERROR)
+      return
+    end
+    session.problem.name = name
+    prob.save(session.problem, session.prob_path)
+    if M.is_open() then
+      render()
+    end
+    util.notify("name: " .. name)
+  end)
+end
+
 ---@param index integer|nil
 function M.delete_testcase(index)
   local s = M.ensure_session()

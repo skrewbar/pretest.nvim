@@ -12,6 +12,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
 - Move between Header / Input / Expected / Output (and Stderr when shown) with `<Tab>` / `<S-Tab>`
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
+- Edit problem name with `:Pretest edit_name`
 - Edit problem time/memory limits with `:Pretest edit_limits`
 - Verdicts: AC, WA, RE, TLE, CE
 - Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
@@ -104,6 +105,7 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 :Pretest edit [index]
 :Pretest delete [index]
 :Pretest edit_limits
+:Pretest edit_name
 :Pretest receive
 :Pretest receive problem
 :Pretest receive contest
@@ -144,6 +146,8 @@ Install the [Competitive Companion](https://github.com/jmerle/competitive-compan
 ```
 
 Then click Companion's green plus on a problem or contest page.
+
+Receive overwrites the stored problem name and limits from Companion. Testcases follow `replace_testcases` (Keep/Replace prompt when `false`).
 
 If bind fails, another process is using the port (CPH, CompetiTest, or another Neovim). Change `companion.port` or stop the other listener.
 
