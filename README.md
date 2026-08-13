@@ -24,8 +24,8 @@ Compile, run, and judge test cases next to your source file. Test data is stored
   lazy = false,
   opts = {}, -- defaults; override keys from Configuration as needed
   keys = {
-    { "<leader>tu", "<cmd>Pretest show<cr>", desc = "Show/Toggle UI" },
-    { "<leader>tt", "<cmd>Pretest toggle_ui<cr>", desc = "Toggle UI mode" },
+    { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
+    { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
     { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
     { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
     { "<leader>tn", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
@@ -94,8 +94,8 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 ## Commands
 
 ```vim
-:Pretest show
-:Pretest toggle_ui
+:Pretest toggle
+:Pretest toggle_layout
 :Pretest toggle_hints
 :Pretest run [index...]
 :Pretest run_current

@@ -4,8 +4,8 @@ local util = require("pretest.util")
 local M = {}
 
 local subcommands = {
-  "show",
-  "toggle_ui",
+  "toggle",
+  "toggle_layout",
   "toggle_hints",
   "run",
   "run_current",
@@ -58,10 +58,10 @@ function M.command(args)
     return
   end
 
-  if sub == "show" then
+  if sub == "toggle" then
     ui.toggle()
-  elseif sub == "toggle_ui" then
-    ui.toggle_ui_mode()
+  elseif sub == "toggle_layout" then
+    ui.toggle_layout()
   elseif sub == "toggle_hints" then
     ui.toggle_hints()
   elseif sub == "run" then

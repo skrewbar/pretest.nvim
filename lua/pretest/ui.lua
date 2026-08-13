@@ -1406,7 +1406,7 @@ function M.toggle()
   end
 end
 
-function M.toggle_ui_mode()
+function M.toggle_layout()
   local s = M.ensure_session()
   if not s then
     return
