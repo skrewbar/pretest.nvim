@@ -22,24 +22,10 @@ local HTTP_OK = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r
 ---@type pretest.CompanionState|nil
 local state = nil
 
----@param ext string
----@return string|nil
-local function ft_from_ext(ext)
-  ext = ext:lower()
-  if ext == "py" then
-    return "python"
-  end
-  if ext == "cpp" or ext == "cc" or ext == "cxx" or ext == "c" then
-    return "cpp"
-  end
-  return nil
-end
-
 ---@param path string
 ---@return boolean
 local function supported_source(path)
-  local ext = vim.fn.fnamemodify(path, ":e")
-  return ft_from_ext(ext) ~= nil
+  return util.supported_filetype(util.filetype_from_path(path))
 end
 
 ---@param s string
@@ -212,7 +198,7 @@ local function store_testcases(bufnr, task)
     util.notify("no file in current buffer", vim.log.levels.ERROR)
     return false
   end
-  if ft ~= "cpp" and ft ~= "python" then
+  if not util.supported_filetype(ft) then
     util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
     return false
   end
@@ -547,10 +533,10 @@ function M.start(mode)
     bufnr = vim.api.nvim_get_current_buf()
     local path, ft = util.source_from_buf(bufnr)
     if not path then
-      util.notify("open a C++ or Python source file first", vim.log.levels.ERROR)
+      util.notify("open a source file first", vim.log.levels.ERROR)
       return false
     end
-    if ft ~= "cpp" and ft ~= "python" then
+    if not util.supported_filetype(ft) then
       util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
       return false
     end

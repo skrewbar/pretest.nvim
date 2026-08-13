@@ -48,7 +48,8 @@ function M.bin_path_for(src_path, ft)
   else
     name = stem
   end
-  if ft == "cpp" then
+  local lang = config.language(ft)
+  if lang and lang.compile then
     return vim.fs.joinpath(dir, name .. ".out")
   end
   return vim.fs.joinpath(dir, name)
@@ -89,7 +90,7 @@ end
 ---@param ft string
 ---@param on_done fun(ok: boolean, stderr: string)
 function M.compile(src_path, ft, on_done)
-  local lang = config.get().languages[ft]
+  local lang = config.language(ft)
   if not lang then
     on_done(false, "unsupported filetype: " .. ft)
     return
@@ -140,7 +141,7 @@ end
 ---@param time_limit_ms integer
 ---@param on_done fun(result: pretest.CaseResult)
 function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
-  local lang = config.get().languages[ft]
+  local lang = config.language(ft)
   if not lang or not lang.run then
     on_done({
       verdict = "RE",

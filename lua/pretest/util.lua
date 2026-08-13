@@ -184,14 +184,40 @@ function M.resolve_size(spec, min_spec, max_spec, total, fallback)
   return math.max(1, math.min(math.floor(size + 1e-9), total))
 end
 
+---@param ft string|nil
+---@return boolean
+function M.supported_filetype(ft)
+  return require("pretest.config").language(ft) ~= nil
+end
+
 ---@param path string
 ---@return string|nil
 function M.filetype_from_path(path)
+  local languages = require("pretest.config").get().languages or {}
+  local detected = vim.filetype.match({ filename = path })
+  if detected and languages[detected] then
+    return detected
+  end
+
   local ext = vim.fn.fnamemodify(path, ":e"):lower()
-  if ext == "cpp" or ext == "cc" or ext == "cxx" or ext == "c" then
-    return "cpp"
-  elseif ext == "py" then
-    return "python"
+  if ext ~= "" then
+    for ft, lang in pairs(languages) do
+      local exts = type(lang) == "table" and lang.extensions
+      if type(exts) == "table" then
+        for _, e in ipairs(exts) do
+          if type(e) == "string" and e:lower() == ext then
+            return ft
+          end
+        end
+      end
+    end
+    if languages[ext] then
+      return ext
+    end
+  end
+
+  if detected and detected ~= "" then
+    return detected
   end
   return nil
 end
@@ -207,7 +233,10 @@ function M.source_from_buf(bufnr)
   local path = M.abspath(name)
   local ft = vim.bo[bufnr].filetype
   if ft == "" then
-    ft = M.filetype_from_path(path)
+    ft = nil
+  end
+  if not M.supported_filetype(ft) then
+    ft = M.filetype_from_path(path) or ft
   end
   return path, ft
 end

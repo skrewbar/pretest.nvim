@@ -6,7 +6,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 
 ## Features (v1)
 
-- C++ and Python runners
+- Language runners via `languages` (C++ and Python by default)
 - Sidebar or floating UI (toggle at runtime)
 - Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
 - Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
@@ -40,7 +40,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 
 ## Configuration
 
-All keys are optional. `languages` is deep-merged, so you can override just `compile.exec`.
+All keys are optional. `languages` is deep-merged, so you can override just `compile.exec`. Keys are Neovim filetypes; add an entry to support another language. Optional `extensions` maps extra suffixes onto that filetype.
 
 ```lua
 require("pretest").setup({
@@ -63,12 +63,14 @@ require("pretest").setup({
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
   languages = {
     cpp = {
+      extensions = { "cpp", "cc", "cxx", "c" },
       compile = {
         exec = "g++", -- e.g. "g++-16" or "clang++"
         args = { "-o", "$bin", "$src" },
       },
     },
     python = {
+      extensions = { "py" },
       run = { exec = "python3" },
     },
   },
@@ -91,7 +93,7 @@ With lazy.nvim, pass the same table as `opts`.
 
 UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `max_*`) are numbers. Values in `(0, 1]` are fractions of editor columns (width) or lines (height); values `> 1` are cells. Min/max clamp after the base size is resolved. Omit a min/max key (or leave it `nil`) to skip that bound.
 
-`$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there.
+`$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
 
 ## Commands
 

@@ -1376,7 +1376,7 @@ follow_visible_source = function()
     return
   end
   local path, ft = util.source_from_buf(bufnr)
-  if not path or (ft ~= "cpp" and ft ~= "python") then
+  if not path or not util.supported_filetype(ft) then
     M.close()
     return
   end
@@ -1407,7 +1407,7 @@ function M.ensure_session(src_bufnr)
     util.notify("no file in current buffer", vim.log.levels.ERROR)
     return nil
   end
-  if ft ~= "cpp" and ft ~= "python" then
+  if not util.supported_filetype(ft) then
     util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
     return nil
   end
@@ -1925,7 +1925,7 @@ function M.move_source(dest, opts)
       util.notify("no file in current buffer", vim.log.levels.ERROR)
       return
     end
-    if ft ~= "cpp" and ft ~= "python" then
+    if not util.supported_filetype(ft) then
       util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
       return
     end
@@ -1939,7 +1939,7 @@ function M.move_source(dest, opts)
   end
 
   local new_ft = util.filetype_from_path(new_src)
-  if new_ft ~= "cpp" and new_ft ~= "python" then
+  if not util.supported_filetype(new_ft) then
     util.notify("unsupported destination filetype: " .. vim.fn.fnamemodify(new_src, ":t"), vim.log.levels.ERROR)
     return
   end

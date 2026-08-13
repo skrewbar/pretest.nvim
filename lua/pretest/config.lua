@@ -67,6 +67,7 @@ local M = {}
 ---@field args? pretest.LangArgs
 
 ---@class pretest.LangConfig
+---@field extensions? string[] extra suffixes (no dot) mapped onto this filetype
 ---@field compile? pretest.CompileConfig
 ---@field run pretest.RunConfig
 
@@ -99,6 +100,7 @@ local defaults = {
   },
   languages = {
     cpp = {
+      extensions = { "cpp", "cc", "cxx", "c" },
       compile = {
         exec = "g++",
         args = { "-o", "$bin", "$src" },
@@ -111,6 +113,7 @@ local defaults = {
       },
     },
     python = {
+      extensions = { "py" },
       run = {
         exec = "python3",
         args = function(ctx)
@@ -144,6 +147,15 @@ end
 ---@return pretest.Config
 function M.get()
   return M.options
+end
+
+---@param ft string|nil
+---@return pretest.LangConfig|nil
+function M.language(ft)
+  if type(ft) ~= "string" or ft == "" then
+    return nil
+  end
+  return (M.get().languages or {})[ft]
 end
 
 return M
