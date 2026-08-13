@@ -31,6 +31,10 @@ local preferred_ui = nil
 ---@type boolean|nil
 local preferred_show_hints = nil
 
+---Last header window width; used to re-apply heights when wrap extra changes.
+---@type integer|nil
+local last_header_wrap_width = nil
+
 local HEADER_NS = vim.api.nvim_create_namespace("pretest_header")
 local EMPTY_EOL_NS = vim.api.nvim_create_namespace("pretest_empty_eol")
 local HEADER_HEIGHT_CAP = 36
@@ -72,6 +76,42 @@ end
 
 local function valid_buf(buf)
   return buf and vim.api.nvim_buf_is_valid(buf)
+end
+
+---@return integer
+local function resolved_sidebar_width()
+  local cfg = config.get()
+  return util.resolve_size(
+    cfg.sidebar_width,
+    cfg.sidebar_min_width,
+    cfg.sidebar_max_width,
+    vim.o.columns,
+    40
+  )
+end
+
+---@return integer
+local function resolved_float_width()
+  local cfg = config.get()
+  return util.resolve_size(
+    cfg.float_width,
+    cfg.float_min_width,
+    cfg.float_max_width,
+    vim.o.columns,
+    0.6
+  )
+end
+
+---@return integer
+local function resolved_float_height()
+  local cfg = config.get()
+  return util.resolve_size(
+    cfg.float_height,
+    cfg.float_min_height,
+    cfg.float_max_height,
+    vim.o.lines,
+    0.8
+  )
 end
 
 ---@param win integer
@@ -201,6 +241,7 @@ local function apply_highlights()
 end
 
 -- Hint rows: { text, is_key } segments so shortcuts can be colored.
+-- Wrap happens per hint unit (keys joined by `/` plus the following label).
 local HINT_SEGMENTS = {
   {
     { "<C-n>", true },
@@ -230,26 +271,69 @@ local HINT_SEGMENTS = {
   },
 }
 
+---@alias pretest.HintSeg { [1]: string, [2]: boolean }
+
+---Group segments into unsplittable hints: keys joined by `/`, plus the label.
+---@param segs pretest.HintSeg[]
+---@return pretest.HintSeg[][]
+local function hint_units(segs)
+  local units = {}
+  local i = 1
+  while i <= #segs do
+    local unit = {}
+    while i <= #segs do
+      local text, is_key = segs[i][1], segs[i][2]
+      if is_key or text == "/" then
+        unit[#unit + 1] = segs[i]
+        i = i + 1
+      else
+        break
+      end
+    end
+    if i <= #segs and not segs[i][2] then
+      unit[#unit + 1] = segs[i]
+      i = i + 1
+    end
+    if #unit > 0 then
+      units[#units + 1] = unit
+    end
+  end
+  return units
+end
+
+---@param width integer|nil
 ---@return string[] lines
 ---@return { row: integer, col: integer, end_col: integer, hl: string }[] marks
-local function build_hint_lines()
+local function build_hint_lines(width)
+  width = (width and width > 0) and width or math.huge
   local lines = {}
   local marks = {}
   for _, segs in ipairs(HINT_SEGMENTS) do
     local row = #lines
     local col = 0
     local parts = {}
-    for _, seg in ipairs(segs) do
-      local text, is_key = seg[1], seg[2]
-      parts[#parts + 1] = text
-      local end_col = col + #text
-      marks[#marks + 1] = {
-        row = row,
-        col = col,
-        end_col = end_col,
-        hl = is_key and "PretestKey" or "PretestHint",
-      }
-      col = end_col
+    for _, unit in ipairs(hint_units(segs)) do
+      local unit_len = 0
+      for _, seg in ipairs(unit) do
+        unit_len = unit_len + #seg[1]
+      end
+      if col > 0 and col + unit_len > width then
+        lines[#lines + 1] = table.concat(parts)
+        parts = {}
+        row = #lines
+        col = 0
+      end
+      for _, seg in ipairs(unit) do
+        local text, is_key = seg[1], seg[2]
+        parts[#parts + 1] = text
+        marks[#marks + 1] = {
+          row = row,
+          col = col,
+          end_col = col + #text,
+          hl = is_key and "PretestKey" or "PretestHint",
+        }
+        col = col + #text
+      end
     end
     lines[#lines + 1] = table.concat(parts)
   end
@@ -291,10 +375,13 @@ end
 ---@field n integer
 
 ---@param n integer
+---@param hint_n integer|nil
 ---@return pretest.HeaderLayout
-local function header_layout(n)
+local function header_layout(n, hint_n)
   local show_hints = get_show_hints()
-  local hint_n = show_hints and #HINT_SEGMENTS or 0
+  if hint_n == nil then
+    hint_n = show_hints and #HINT_SEGMENTS or 0
+  end
   local name_row = 0
   local limits_row = 1
   local sep_row = 2
@@ -319,9 +406,14 @@ local function header_layout(n)
 end
 
 ---@param n integer
+---@param width integer|nil
 ---@return integer
-local function header_content_min(n)
-  return header_layout(n).min_height
+local function header_content_min(n, width)
+  local hint_n = 0
+  if get_show_hints() then
+    hint_n = #build_hint_lines(width)
+  end
+  return header_layout(n, hint_n).min_height
 end
 
 ---@param verdict string|nil
@@ -557,7 +649,7 @@ local function compute_float_heights(show_stderr, stderr_h)
   local cfg = config.get()
   local n_sections = show_stderr and 5 or 4
   local border = 2
-  local total_outer = math.max(16, math.floor(vim.o.lines * cfg.float_height))
+  local total_outer = resolved_float_height()
   stderr_h = show_stderr and math.max(1, stderr_h or 2) or 0
   local content_budget = math.max(12, total_outer - n_sections * border - stderr_h)
   local header, input, expected, output = section_heights_from_weights(content_budget, cfg.float_sections)
@@ -597,7 +689,15 @@ local function apply_sidebar_section_heights(stderr_h)
   local remaining = math.max(12, total - stderr_h)
   local header_h, input_h, expected_h, output_h =
     section_heights_from_weights(remaining, config.get().sidebar_sections)
-  local hmin = header_content_min(#session.problem.tests)
+  local header_win
+  for _, item in ipairs(wins) do
+    if item.buf == session.bufs.header then
+      header_win = item.win
+      break
+    end
+  end
+  local wrap_w = header_win and vim.api.nvim_win_get_width(header_win) or resolved_sidebar_width()
+  local hmin = header_content_min(#session.problem.tests, wrap_w)
   if header_h < hmin and remaining >= hmin + 9 then
     header_h = hmin
     local body_budget = remaining - header_h
@@ -701,9 +801,9 @@ local function header_sep_width()
     return math.max(1, vim.api.nvim_win_get_width(win))
   end
   if session.ui_mode == "float" then
-    return math.max(30, math.floor(vim.o.columns * config.get().float_width))
+    return resolved_float_width()
   end
-  return math.max(1, config.get().sidebar_width or 40)
+  return resolved_sidebar_width()
 end
 
 ---@return string
@@ -711,23 +811,43 @@ local function header_sep_line()
   return string.rep("─", header_sep_width())
 end
 
----Refresh only the header separator width (e.g. on WinResized).
-local function refresh_header_sep()
+---Rebuild header buffer (name, cases, wrapped hints, separator).
+local function write_header()
   if not session or not valid_buf(session.bufs.header) then
     return
   end
-  local layout = header_layout(#session.problem.tests)
-  local sep = header_sep_line()
-  local was_modifiable = vim.bo[session.bufs.header].modifiable
-  vim.bo[session.bufs.header].modifiable = true
-  vim.api.nvim_buf_set_lines(session.bufs.header, layout.sep_row, layout.sep_row + 1, false, { sep })
-  vim.bo[session.bufs.header].modifiable = was_modifiable
-  vim.bo[session.bufs.header].modified = false
-  local hint_marks = {}
-  if layout.show_hints then
-    _, hint_marks = build_hint_lines()
+  local n = #session.problem.tests
+  local idx = session.index
+  local width = header_sep_width()
+  local hint_lines, hint_marks = {}, {}
+  if get_show_hints() then
+    hint_lines, hint_marks = build_hint_lines(width)
   end
-  apply_header_marks(session.bufs.header, layout, session.index, hint_marks)
+  local layout = header_layout(n, #hint_lines)
+  local tl = session.problem.timeLimit or config.get().default_time_limit
+  local ml = session.problem.memoryLimit or config.get().default_memory_limit
+
+  local header = {
+    string.format("%s", session.problem.name or "Pretest"),
+    string.format("TL %dms │ ML %dMB", tl, ml),
+    header_sep_line(),
+    "Testcases",
+  }
+  for i = 1, n do
+    local line = format_case_line(i, n, idx, session.results[i])
+    header[#header + 1] = line
+  end
+  if layout.show_hints then
+    header[#header + 1] = ""
+    for _, line in ipairs(hint_lines) do
+      header[#header + 1] = line
+    end
+  end
+
+  set_lines(session.bufs.header, header)
+  vim.bo[session.bufs.header].modifiable = false
+  vim.bo[session.bufs.header].modified = false
+  apply_header_marks(session.bufs.header, layout, idx, hint_marks)
 end
 
 local function prune_winids()
@@ -826,10 +946,27 @@ local function apply_float_layout(err_lines)
     return
   end
   local cfg = config.get()
-  local width = math.max(30, math.floor(vim.o.columns * cfg.float_width))
+  local width = resolved_float_width()
   local show_stderr = err_lines ~= nil
   local stderr_h = show_stderr and math.min(8, #err_lines + 1) or 0
   local heights = compute_float_heights(show_stderr, stderr_h)
+  local remaining = heights.header + heights.input + heights.expected + heights.output
+  local wrap_extra = 0
+  if get_show_hints() then
+    wrap_extra = math.max(0, #build_hint_lines(width) - #HINT_SEGMENTS)
+  end
+  if wrap_extra > 0 and remaining >= heights.header + wrap_extra + 9 then
+    heights.header = heights.header + wrap_extra
+    local body_budget = remaining - heights.header
+    local sec = cfg.float_sections or {}
+    local wi = math.max(0.0001, tonumber(sec.input) or 1)
+    local we = math.max(0.0001, tonumber(sec.expected) or 1)
+    local wo = math.max(0.0001, tonumber(sec.output) or 1)
+    local tw = wi + we + wo
+    heights.input = math.max(3, math.floor(body_budget * wi / tw + 1e-9))
+    heights.expected = math.max(3, math.floor(body_budget * we / tw + 1e-9))
+    heights.output = math.max(3, body_budget - heights.input - heights.expected)
+  end
 
   local n_sections = show_stderr and 5 or 4
   local content_h = heights.header + heights.input + heights.expected + heights.output + heights.stderr
@@ -872,39 +1009,12 @@ local function render()
   end
   session.applying = true
 
+  write_header()
+
   local n = #session.problem.tests
   local idx = session.index
   local result = current_result()
   local verdict = result and result.verdict or "Pending"
-  local layout = header_layout(n)
-  local tl = session.problem.timeLimit or config.get().default_time_limit
-  local ml = session.problem.memoryLimit or config.get().default_memory_limit
-
-  local header = {
-    string.format("%s", session.problem.name or "Pretest"),
-    string.format("TL %dms │ ML %dMB", tl, ml),
-    header_sep_line(),
-    "Testcases",
-  }
-  for i = 1, n do
-    local line = format_case_line(i, n, idx, session.results[i])
-    header[#header + 1] = line
-  end
-  local hint_marks = {}
-  if layout.show_hints then
-    header[#header + 1] = ""
-    local hint_lines
-    hint_lines, hint_marks = build_hint_lines()
-    for _, line in ipairs(hint_lines) do
-      header[#header + 1] = line
-    end
-  end
-
-  set_lines(session.bufs.header, header)
-  vim.bo[session.bufs.header].modifiable = false
-  vim.bo[session.bufs.header].modified = false
-  apply_header_marks(session.bufs.header, layout, idx, hint_marks)
-
   local tc = session.problem.tests[idx]
   local input_lines = tc and util.split_lines(tc.input) or { "" }
   local expected_lines = tc and util.split_lines(tc.output) or { "" }
@@ -975,7 +1085,7 @@ local function render()
       end
     end
   end
-  refresh_header_sep()
+  write_header()
 
   session.applying = false
 end
@@ -1097,16 +1207,36 @@ local function setup_buf_autocmds()
           return
         end
       end
-      refresh_header_sep()
+      write_header()
+      local width = vim.api.nvim_win_get_width(header_win)
+      if width == last_header_wrap_width then
+        return
+      end
+      last_header_wrap_width = width
+      session.applying = true
+      if session.ui_mode == "sidebar" then
+        local stderr_h = 0
+        local sw = find_win_for_buf(session.bufs.stderr)
+        if sw then
+          stderr_h = vim.api.nvim_win_get_height(sw)
+        end
+        apply_sidebar_section_heights(stderr_h)
+      else
+        local err_lines = nil
+        if find_win_for_buf(session.bufs.stderr) then
+          err_lines = vim.api.nvim_buf_get_lines(session.bufs.stderr, 0, -1, false)
+        end
+        apply_float_layout(err_lines)
+      end
+      session.applying = false
     end,
   })
 end
 
 local function open_sidebar_column()
-  local cfg = config.get()
   vim.cmd("botright vsplit")
   local root = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_width(root, cfg.sidebar_width)
+  vim.api.nvim_win_set_width(root, resolved_sidebar_width())
   vim.api.nvim_win_set_buf(root, session.bufs.header)
   configure_win(root, "header")
   session.main_win = root
@@ -1129,8 +1259,7 @@ local function open_sidebar_column()
 end
 
 local function open_float_stack()
-  local cfg = config.get()
-  local width = math.max(30, math.floor(vim.o.columns * cfg.float_width))
+  local width = resolved_float_width()
   -- Stderr float is created later in apply_float_layout only when non-empty.
   local heights = compute_float_heights(false, 0)
   local content_h = heights.header + heights.input + heights.expected + heights.output

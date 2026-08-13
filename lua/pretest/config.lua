@@ -1,11 +1,20 @@
 local M = {}
 
+---`(0, 1]` is a fraction of editor columns/lines; `> 1` is cells.
+---@alias pretest.Size number
+
 ---@class pretest.Config
 ---@field save_dir string|nil
 ---@field ui "sidebar"|"float"
----@field sidebar_width integer
----@field float_width number
----@field float_height number
+---@field sidebar_width pretest.Size
+---@field sidebar_min_width pretest.Size|nil
+---@field sidebar_max_width pretest.Size|nil
+---@field float_width pretest.Size
+---@field float_height pretest.Size
+---@field float_min_width pretest.Size|nil
+---@field float_max_width pretest.Size|nil
+---@field float_min_height pretest.Size|nil
+---@field float_max_height pretest.Size|nil
 ---@field default_time_limit integer
 ---@field default_memory_limit integer
 ---@field show_header_hints boolean
@@ -35,9 +44,15 @@ local M = {}
 local defaults = {
   save_dir = nil,
   ui = "sidebar",
-  sidebar_width = 48,
-  float_width = 0.4,
-  float_height = 0.6,
+  sidebar_width = 40,
+  sidebar_min_width = nil,
+  sidebar_max_width = nil,
+  float_width = 0.6,
+  float_height = 0.8,
+  float_min_width = 30,
+  float_max_width = nil,
+  float_min_height = 16,
+  float_max_height = nil,
   default_time_limit = 3000,
   default_memory_limit = 1024,
   show_header_hints = true,

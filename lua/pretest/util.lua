@@ -149,6 +149,41 @@ function M.write_file(path, content)
   return true
 end
 
+---`(0, 1]` is a fraction of `total`; `> 1` is absolute cells.
+---@param n number|nil
+---@param total number
+---@return number|nil
+local function to_cells(n, total)
+  if type(n) ~= "number" or n ~= n or n <= 0 or n == math.huge then
+    return nil
+  end
+  if n <= 1 then
+    return total * n
+  end
+  return n
+end
+
+---Resolve a size number, clamp to min/max (same relative/absolute rules), then to `[1, total]`.
+---@param spec number|nil
+---@param min_spec number|nil
+---@param max_spec number|nil
+---@param total number
+---@param fallback number|nil
+---@return integer
+function M.resolve_size(spec, min_spec, max_spec, total, fallback)
+  local size = to_cells(spec, total) or to_cells(fallback, total) or 1
+  local min_v = to_cells(min_spec, total)
+  local max_v = to_cells(max_spec, total)
+  if min_v then
+    size = math.max(size, min_v)
+  end
+  if max_v then
+    size = math.min(size, max_v)
+  end
+  total = math.max(1, math.floor(total))
+  return math.max(1, math.min(math.floor(size + 1e-9), total))
+end
+
 ---@param bufnr integer|nil
 ---@return string|nil, string|nil # path, filetype
 function M.source_from_buf(bufnr)

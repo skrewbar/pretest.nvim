@@ -42,9 +42,16 @@ All keys are optional. `languages` is deep-merged, so you can override just `com
 ```lua
 require("pretest").setup({
   ui = "sidebar", -- or "float"
-  sidebar_width = 48,
-  float_width = 0.4, -- fraction of editor columns
-  float_height = 0.6, -- fraction of editor lines
+  -- Size: (0, 1] is a fraction of editor columns/lines; > 1 is cells.
+  sidebar_width = 40,
+  sidebar_min_width = nil,
+  sidebar_max_width = nil,
+  float_width = 0.6,
+  float_height = 0.8,
+  float_min_width = 30,
+  float_max_width = nil,
+  float_min_height = 16,
+  float_max_height = nil,
   save_dir = nil, -- nil → {src_dir}/.pretest
   default_time_limit = 3000, -- ms
   default_memory_limit = 1024, -- MB
@@ -66,6 +73,8 @@ require("pretest").setup({
 ```
 
 With lazy.nvim, pass the same table as `opts`.
+
+UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `max_*`) are numbers. Values in `(0, 1]` are fractions of editor columns (width) or lines (height); values `> 1` are cells. Min/max clamp after the base size is resolved. Omit a min/max key (or leave it `nil`) to skip that bound.
 
 `$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there.
 
