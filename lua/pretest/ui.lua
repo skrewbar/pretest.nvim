@@ -177,6 +177,16 @@ local function apply_highlights()
   for name, link in pairs(links) do
     vim.api.nvim_set_hl(0, name, { link = link, default = true })
   end
+  -- Separator line: FloatBorder foreground only (no bg — linking FloatBorder
+  -- often paints a dark bar across the row).
+  local fb = vim.api.nvim_get_hl(0, { name = "FloatBorder", link = false })
+  vim.api.nvim_set_hl(0, "PretestSep", {
+    fg = fb.fg,
+    ctermfg = fb.ctermfg,
+    bg = "NONE",
+    ctermbg = "NONE",
+    default = true,
+  })
 end
 
 -- Hint rows: { text, is_key } segments so shortcuts can be colored.
@@ -255,6 +265,7 @@ end
 ---@class pretest.HeaderLayout
 ---@field name_row integer
 ---@field limits_row integer
+---@field sep_row integer
 ---@field cases_label_row integer
 ---@field cases_start integer
 ---@field hint_base integer|nil
@@ -269,16 +280,18 @@ local function header_layout(n)
   local hint_n = show_hints and #HINT_SEGMENTS or 0
   local name_row = 0
   local limits_row = 1
-  -- name, limits, blank, "Testcases:", then cases
+  local sep_row = 2
+  -- name, limits, sep, "Testcases", then cases
   local cases_label_row = 3
   local cases_start = 4
   -- blank after cases only when hints follow
   local hint_base = show_hints and (cases_start + n + 1) or nil
-  -- name + limits + blank + label + cases + optional (blank + hints)
+  -- name + limits + sep + label + cases + optional (blank + hints)
   local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 4 + n + (show_hints and (1 + hint_n) or 0)))
   return {
     name_row = name_row,
     limits_row = limits_row,
+    sep_row = sep_row,
     cases_label_row = cases_label_row,
     cases_start = cases_start,
     hint_base = hint_base,
@@ -356,6 +369,26 @@ end
 ---@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
 local function apply_header_marks(buf, layout, idx, hint_marks)
   vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, 0, -1)
+
+  local sep_line = vim.api.nvim_buf_get_lines(buf, layout.sep_row, layout.sep_row + 1, false)[1] or ""
+  if sep_line ~= "" then
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.sep_row, 0, {
+      end_col = #sep_line,
+      hl_group = "PretestSep",
+    })
+  end
+
+  local limits_line = vim.api.nvim_buf_get_lines(buf, layout.limits_row, layout.limits_row + 1, false)[1] or ""
+  local bar_col = limits_line:find("│", 1, true)
+  if bar_col then
+    -- find() returns 1-based byte index of the first byte of │
+    local bar_start = bar_col - 1
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.limits_row, bar_start, {
+      end_col = bar_start + #"│",
+      hl_group = "PretestSep",
+    })
+  end
+
   local n = layout.n
   for i = 1, n do
     local row = layout.cases_start + i - 1
@@ -585,6 +618,45 @@ local function find_win_for_buf(buf)
   return nil
 end
 
+---@return integer
+local function header_sep_width()
+  if not session then
+    return 20
+  end
+  local win = find_win_for_buf(session.bufs.header)
+  if win then
+    return math.max(1, vim.api.nvim_win_get_width(win))
+  end
+  if session.ui_mode == "float" then
+    return math.max(30, math.floor(vim.o.columns * config.get().float_width))
+  end
+  return math.max(1, config.get().sidebar_width or 40)
+end
+
+---@return string
+local function header_sep_line()
+  return string.rep("─", header_sep_width())
+end
+
+---Refresh only the header separator width (e.g. on WinResized).
+local function refresh_header_sep()
+  if not session or not valid_buf(session.bufs.header) then
+    return
+  end
+  local layout = header_layout(#session.problem.tests)
+  local sep = header_sep_line()
+  local was_modifiable = vim.bo[session.bufs.header].modifiable
+  vim.bo[session.bufs.header].modifiable = true
+  vim.api.nvim_buf_set_lines(session.bufs.header, layout.sep_row, layout.sep_row + 1, false, { sep })
+  vim.bo[session.bufs.header].modifiable = was_modifiable
+  vim.bo[session.bufs.header].modified = false
+  local hint_marks = {}
+  if layout.show_hints then
+    _, hint_marks = build_hint_lines()
+  end
+  apply_header_marks(session.bufs.header, layout, session.index, hint_marks)
+end
+
 local function prune_winids()
   if not session then
     return
@@ -737,9 +809,9 @@ local function render()
 
   local header = {
     string.format("%s", session.problem.name or "Pretest"),
-    string.format("TL: %dms  ML: %dMB", tl, ml),
-    "",
-    "Testcases:",
+    string.format("TL %dms │ ML %dMB", tl, ml),
+    header_sep_line(),
+    "Testcases",
   }
   for i = 1, n do
     local line = format_case_line(i, n, idx, session.results[i])
@@ -825,6 +897,7 @@ local function render()
   else
     apply_float_layout(err_lines)
   end
+  refresh_header_sep()
 
   session.applying = false
 end
@@ -914,6 +987,33 @@ local function setup_buf_autocmds()
       session.applying = true
       pcall(vim.api.nvim_win_set_cursor, win, { layout.cases_start + index, 0 })
       session.applying = false
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinResized", {
+    group = group,
+    callback = function()
+      if not session or session.applying then
+        return
+      end
+      local header_win = find_win_for_buf(session.bufs.header)
+      if not header_win then
+        return
+      end
+      local resized = vim.v.event and vim.v.event.windows or nil
+      if type(resized) == "table" then
+        local hit = false
+        for _, w in ipairs(resized) do
+          if w == header_win then
+            hit = true
+            break
+          end
+        end
+        if not hit then
+          return
+        end
+      end
+      refresh_header_sep()
     end,
   })
 end
