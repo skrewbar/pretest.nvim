@@ -75,6 +75,13 @@ local function valid_buf(buf)
 end
 
 ---@param win integer
+---@param text string
+local function set_winbar(win, text)
+  -- scope=local: winbar is global-or-local; :set would leak into new floats.
+  pcall(vim.api.nvim_set_option_value, "winbar", text, { win = win, scope = "local" })
+end
+
+---@param win integer
 ---@param kind "header"|"body"
 local function configure_win(win, kind)
   local body = kind == "body"
@@ -88,6 +95,10 @@ local function configure_win(win, kind)
     vim.wo[win].listchars = "tab:>·,trail:-"
   end
   vim.wo[win].cursorline = false
+  -- Sidebar last-used winbar is remembered on the buffer; floats use border titles.
+  if session and session.ui_mode == "float" then
+    set_winbar(win, "")
+  end
 end
 
 ---Mark completely empty lines with an eol indicator (listchars eol would mark every line).
@@ -780,7 +791,7 @@ local function ensure_sidebar_stderr_win(height)
   local win = find_win_for_buf(session.bufs.stderr)
   if win then
     pcall(vim.api.nvim_win_set_height, win, height)
-    pcall(vim.api.nvim_set_option_value, "winbar", "Stderr", { win = win })
+    set_winbar(win, "Stderr")
     return win
   end
   local out_win = find_win_for_buf(session.bufs.output)
@@ -794,7 +805,7 @@ local function ensure_sidebar_stderr_win(height)
   vim.api.nvim_win_set_buf(win, session.bufs.stderr)
   configure_win(win, "body")
   pcall(vim.api.nvim_win_set_height, win, height)
-  pcall(vim.api.nvim_set_option_value, "winbar", "Stderr", { win = win })
+  set_winbar(win, "Stderr")
   table.insert(session.winids, win)
   if valid_win(prev) then
     pcall(vim.api.nvim_set_current_win, prev)
@@ -937,13 +948,13 @@ local function render()
       if valid_win(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         if buf == session.bufs.input then
-          pcall(vim.api.nvim_set_option_value, "winbar", "Input", { win = win })
+          set_winbar(win, "Input")
         elseif buf == session.bufs.expected then
-          pcall(vim.api.nvim_set_option_value, "winbar", "Expected", { win = win })
+          set_winbar(win, "Expected")
         elseif buf == session.bufs.output then
-          pcall(vim.api.nvim_set_option_value, "winbar", "Output", { win = win })
+          set_winbar(win, "Output")
         elseif buf == session.bufs.header then
-          pcall(vim.api.nvim_set_option_value, "winbar", "Pretest", { win = win })
+          set_winbar(win, "Pretest")
         end
       end
     end
@@ -958,6 +969,11 @@ local function render()
     apply_sidebar_section_heights(stderr_h)
   else
     apply_float_layout(err_lines)
+    for _, win in ipairs(session.winids) do
+      if valid_win(win) then
+        set_winbar(win, "")
+      end
+    end
   end
   refresh_header_sep()
 
