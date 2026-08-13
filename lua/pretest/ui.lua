@@ -23,6 +23,13 @@ local M = {}
 ---@type pretest.Session|nil
 local session = nil
 
+---Per-source results kept while the UI is showing another file.
+---@type table<string, { results: table<integer, pretest.CaseResult>, index: integer, compile_stderr: string }>
+local parked = {}
+
+---Assigned after helpers exist; BufEnter in setup() closes over this upvalue.
+local follow_visible_source
+
 ---Remembers last chosen UI mode for this Neovim session (falls back to config.ui).
 ---@type "sidebar"|"float"|nil
 local preferred_ui = nil
@@ -359,6 +366,12 @@ function M.setup()
       end
       pcall(M.flush_edits)
       clear_ui_modified()
+    end,
+  })
+  vim.api.nvim_create_autocmd("BufEnter", {
+    group = group,
+    callback = function()
+      vim.schedule(follow_visible_source)
     end,
   })
 end
@@ -1278,6 +1291,105 @@ local function open_layout(mode)
   end
 end
 
+---@param src_path string
+---@return { results: table<integer, pretest.CaseResult>, index: integer, compile_stderr: string }, boolean
+local function state_for(src_path)
+  if session and session.src_path == src_path then
+    return session, true
+  end
+  local p = parked[src_path]
+  if not p then
+    p = { results = {}, index = 1, compile_stderr = "" }
+    parked[src_path] = p
+  end
+  return p, false
+end
+
+local function park_current()
+  if not session then
+    return
+  end
+  M.flush_edits()
+  parked[session.src_path] = {
+    results = session.results,
+    index = session.index,
+    compile_stderr = session.compile_stderr,
+  }
+end
+
+---@param src_bufnr integer
+---@param abs string
+---@param ft string
+local function switch_source(src_bufnr, abs, ft)
+  park_current()
+  local problem, ppath = prob.load_or_create(abs)
+  local saved = parked[abs]
+  session.src_bufnr = src_bufnr
+  session.src_path = abs
+  session.filetype = ft
+  session.problem = problem
+  session.prob_path = ppath
+  if saved then
+    session.results = saved.results
+    session.compile_stderr = saved.compile_stderr
+    local n = #problem.tests
+    if n == 0 then
+      session.index = 0
+    else
+      session.index = math.min(math.max(saved.index, 1), n)
+    end
+    parked[abs] = nil
+  else
+    session.results = {}
+    session.compile_stderr = ""
+    if #problem.tests == 0 then
+      session.index = 0
+    else
+      session.index = 1
+    end
+  end
+end
+
+---@param bufnr integer
+---@return boolean
+local function is_transient_buf(bufnr)
+  if is_ui_buf(bufnr) then
+    return true
+  end
+  local win = vim.api.nvim_get_current_win()
+  if valid_win(win) then
+    local cfg = vim.api.nvim_win_get_config(win)
+    if cfg.relative and cfg.relative ~= "" then
+      return true
+    end
+  end
+  local bt = vim.bo[bufnr].buftype
+  return bt ~= ""
+end
+
+follow_visible_source = function()
+  if not session or not M.is_open() or session.applying then
+    return
+  end
+  local bufnr = vim.api.nvim_get_current_buf()
+  if is_transient_buf(bufnr) then
+    return
+  end
+  local path, ft = util.source_from_buf(bufnr)
+  if not path or (ft ~= "cpp" and ft ~= "python") then
+    M.close()
+    return
+  end
+  local abs = util.abspath(path)
+  if session.src_path == abs then
+    session.src_bufnr = bufnr
+    session.filetype = ft
+    return
+  end
+  switch_source(bufnr, abs, ft)
+  render()
+end
+
 ---@param src_bufnr integer|nil
 function M.ensure_session(src_bufnr)
   src_bufnr = src_bufnr or vim.api.nvim_get_current_buf()
@@ -1310,7 +1422,12 @@ function M.ensure_session(src_bufnr)
   end
 
   if session then
-    M.close()
+    local was_open = M.is_open()
+    switch_source(src_bufnr, abs, ft)
+    if was_open then
+      render()
+    end
+    return session
   end
 
   local problem, ppath = prob.load_or_create(path)
@@ -1583,33 +1700,48 @@ function M.run(indices, do_compile)
   end
   render()
 
+  local run_src = session.src_path
   runner.run_tests(session.src_path, session.filetype, session.problem, targets, do_compile, {
     on_compile_start = function()
-      session.compile_stderr = ""
+      local st = state_for(run_src)
+      st.compile_stderr = ""
     end,
     on_compile_done = function(ok, stderr)
+      local st, live = state_for(run_src)
       if not ok then
-        session.compile_stderr = stderr
+        st.compile_stderr = stderr
         util.notify("compile failed", vim.log.levels.ERROR)
+        if live then
+          render()
+        end
       end
     end,
     on_case_start = function(i)
-      session.results[i] = {
+      local st, live = state_for(run_src)
+      st.results[i] = {
         verdict = "Running",
         stdout = "",
         stderr = "",
       }
-      render()
+      if live then
+        render()
+      end
     end,
     on_case_done = function(i, result)
-      session.results[i] = result
-      render()
+      local st, live = state_for(run_src)
+      st.results[i] = result
+      if live then
+        render()
+      end
     end,
     on_all_done = function()
-      render()
+      local st, live = state_for(run_src)
+      if live then
+        render()
+      end
       local ac, total = 0, #targets
       for _, i in ipairs(targets) do
-        local r = session.results[i]
+        local r = st.results[i]
         if r and r.verdict == "AC" then
           ac = ac + 1
         end
@@ -1660,6 +1792,7 @@ end
 function M.apply_problem(src_path, problem)
   src_path = util.abspath(src_path)
   problem.srcPath = src_path
+  parked[src_path] = nil
   local ppath = prob.prob_path(src_path)
   if not prob.save(problem, ppath) then
     return false
