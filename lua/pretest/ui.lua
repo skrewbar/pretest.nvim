@@ -398,7 +398,7 @@ local function header_layout(n, hint_n)
   local name_row = 0
   local limits_row = 1
   local sep_row = 2
-  -- name, limits, sep, "Testcases", then cases
+  -- name, limits, sep, "Testcases AC/total", then cases
   local cases_label_row = 3
   local cases_start = 4
   -- blank after cases only when hints follow
@@ -423,6 +423,45 @@ end
 local function header_content_min(n)
   -- Unwrapped hint rows only; wrapping must not change section heights.
   return header_layout(n).min_height
+end
+
+local CASES_LABEL = "Testcases "
+
+---@return integer ac
+---@return integer total
+---@return string hl
+local function ac_summary()
+  local total = (session and session.problem and #session.problem.tests) or 0
+  local ac, has_fail, has_running = 0, false, false
+  if session then
+    for i = 1, total do
+      local v = session.results[i] and session.results[i].verdict
+      if v == "AC" then
+        ac = ac + 1
+      elseif v == "Running" then
+        has_running = true
+      elseif v and v ~= "Pending" then
+        has_fail = true
+      end
+    end
+  end
+  local hl
+  if total > 0 and ac == total then
+    hl = "PretestAC"
+  elseif has_fail then
+    hl = "PretestWA"
+  elseif has_running then
+    hl = "PretestRunning"
+  else
+    hl = "PretestPending"
+  end
+  return ac, total, hl
+end
+
+---@return string
+local function format_cases_label()
+  local ac, total = ac_summary()
+  return CASES_LABEL .. string.format("%d/%d", ac, total)
 end
 
 ---@param verdict string|nil
@@ -504,6 +543,15 @@ local function apply_header_marks(buf, layout, idx, hint_marks)
     vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.limits_row, bar_start, {
       end_col = bar_start + #"│",
       hl_group = "PretestSep",
+    })
+  end
+
+  local label_line = vim.api.nvim_buf_get_lines(buf, layout.cases_label_row, layout.cases_label_row + 1, false)[1] or ""
+  if #label_line > #CASES_LABEL then
+    local _, _, summary_hl = ac_summary()
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, #CASES_LABEL, {
+      end_col = #label_line,
+      hl_group = summary_hl,
     })
   end
 
@@ -832,7 +880,7 @@ local function write_header()
     string.format("%s", session.problem.name or "Pretest"),
     string.format("TL %dms │ ML %dMB", tl, ml),
     header_sep_line(),
-    "Testcases",
+    format_cases_label(),
   }
   for i = 1, n do
     local line = format_case_line(i, n, idx, session.results[i])
