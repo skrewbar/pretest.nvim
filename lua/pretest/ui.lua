@@ -406,14 +406,10 @@ local function header_layout(n, hint_n)
 end
 
 ---@param n integer
----@param width integer|nil
 ---@return integer
-local function header_content_min(n, width)
-  local hint_n = 0
-  if get_show_hints() then
-    hint_n = #build_hint_lines(width)
-  end
-  return header_layout(n, hint_n).min_height
+local function header_content_min(n)
+  -- Unwrapped hint rows only; wrapping must not change section heights.
+  return header_layout(n).min_height
 end
 
 ---@param verdict string|nil
@@ -689,15 +685,7 @@ local function apply_sidebar_section_heights(stderr_h)
   local remaining = math.max(12, total - stderr_h)
   local header_h, input_h, expected_h, output_h =
     section_heights_from_weights(remaining, config.get().sidebar_sections)
-  local header_win
-  for _, item in ipairs(wins) do
-    if item.buf == session.bufs.header then
-      header_win = item.win
-      break
-    end
-  end
-  local wrap_w = header_win and vim.api.nvim_win_get_width(header_win) or resolved_sidebar_width()
-  local hmin = header_content_min(#session.problem.tests, wrap_w)
+  local hmin = header_content_min(#session.problem.tests)
   if header_h < hmin and remaining >= hmin + 9 then
     header_h = hmin
     local body_budget = remaining - header_h
@@ -945,28 +933,10 @@ local function apply_float_layout(err_lines)
   if not session or session.ui_mode ~= "float" then
     return
   end
-  local cfg = config.get()
   local width = resolved_float_width()
   local show_stderr = err_lines ~= nil
   local stderr_h = show_stderr and math.min(8, #err_lines + 1) or 0
   local heights = compute_float_heights(show_stderr, stderr_h)
-  local remaining = heights.header + heights.input + heights.expected + heights.output
-  local wrap_extra = 0
-  if get_show_hints() then
-    wrap_extra = math.max(0, #build_hint_lines(width) - #HINT_SEGMENTS)
-  end
-  if wrap_extra > 0 and remaining >= heights.header + wrap_extra + 9 then
-    heights.header = heights.header + wrap_extra
-    local body_budget = remaining - heights.header
-    local sec = cfg.float_sections or {}
-    local wi = math.max(0.0001, tonumber(sec.input) or 1)
-    local we = math.max(0.0001, tonumber(sec.expected) or 1)
-    local wo = math.max(0.0001, tonumber(sec.output) or 1)
-    local tw = wi + we + wo
-    heights.input = math.max(3, math.floor(body_budget * wi / tw + 1e-9))
-    heights.expected = math.max(3, math.floor(body_budget * we / tw + 1e-9))
-    heights.output = math.max(3, body_budget - heights.input - heights.expected)
-  end
 
   local n_sections = show_stderr and 5 or 4
   local content_h = heights.header + heights.input + heights.expected + heights.output + heights.stderr
