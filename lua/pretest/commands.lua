@@ -14,6 +14,15 @@ local subcommands = {
   "edit",
   "delete",
   "edit_limits",
+  "receive",
+}
+
+local receive_subcommands = {
+  "problem",
+  "contest",
+  "persistently",
+  "stop",
+  "status",
 }
 
 ---@param indices string[]|nil
@@ -82,6 +91,28 @@ function M.command(args)
     ui.delete_testcase(idx)
   elseif sub == "edit_limits" then
     ui.edit_limits()
+  elseif sub == "receive" then
+    local companion = require("pretest.companion")
+    local mode = parts[2]
+    if not mode or mode == "testcases" then
+      -- "testcases" is an undocumented alias for the default (current file).
+      companion.start("current")
+    elseif mode == "stop" then
+      if companion.stop() then
+        util.notify("stopped receiving")
+      else
+        util.notify("receiving not enabled")
+      end
+    elseif mode == "status" then
+      companion.status()
+    elseif mode == "problem" or mode == "contest" or mode == "persistently" then
+      companion.start(mode)
+    else
+      util.notify(
+        "usage: Pretest receive [{problem|contest|persistently|stop|status}]",
+        vim.log.levels.WARN
+      )
+    end
   else
     util.notify("unknown subcommand: " .. sub, vim.log.levels.ERROR)
   end
@@ -99,6 +130,18 @@ function M.complete(arglead, cmdline)
   if completing_sub then
     local matches = {}
     for _, s in ipairs(subcommands) do
+      if s:sub(1, #arglead) == arglead then
+        matches[#matches + 1] = s
+      end
+    end
+    return matches
+  end
+
+  local completing_receive = parts[2] == "receive"
+    and ((#parts == 2 and cmdline:match("%s$")) or (#parts == 3 and not cmdline:match("%s$")))
+  if completing_receive then
+    local matches = {}
+    for _, s in ipairs(receive_subcommands) do
       if s:sub(1, #arglead) == arglead then
         matches[#matches + 1] = s
       end

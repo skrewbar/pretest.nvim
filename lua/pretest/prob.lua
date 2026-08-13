@@ -111,6 +111,46 @@ function M.save(problem, path)
   return true
 end
 
+---@param tests { input: string, output: string }[]|nil
+---@return pretest.TestCase[]
+local function tests_from_companion(tests)
+  local out = {}
+  local base = math.floor(vim.uv.hrtime() / 1000)
+  for i, tc in ipairs(tests or {}) do
+    out[i] = {
+      id = base + i,
+      input = util.ensure_string(tc.input),
+      output = util.ensure_string(tc.output),
+    }
+  end
+  return out
+end
+
+---Convert a Competitive Companion task into a `.prob` table, preserving extra fields.
+---@param task pretest.CCTask|table
+---@param src_path string
+---@return pretest.Problem
+function M.from_companion(task, src_path)
+  src_path = util.abspath(src_path)
+  local cfg = config.get()
+  local problem = vim.deepcopy(task)
+  if type(problem) ~= "table" then
+    problem = {}
+  end
+  problem.srcPath = src_path
+  problem["local"] = false
+  problem.name = problem.name or ("Local: " .. vim.fn.fnamemodify(src_path, ":t:r"))
+  problem.url = problem.url or src_path
+  problem.group = problem.group or "local"
+  if problem.interactive == nil then
+    problem.interactive = false
+  end
+  problem.memoryLimit = problem.memoryLimit or cfg.default_memory_limit
+  problem.timeLimit = problem.timeLimit or cfg.default_time_limit
+  problem.tests = tests_from_companion(task.tests)
+  return problem --[[@as pretest.Problem]]
+end
+
 ---@param problem pretest.Problem
 ---@return pretest.TestCase
 function M.add_testcase(problem)

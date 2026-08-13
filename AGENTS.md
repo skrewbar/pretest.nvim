@@ -13,12 +13,13 @@ Neovim plugin for local competitive-programming pretest judging: load/save `.pro
 | `lua/pretest/init.lua` | `setup()`, user command registration |
 | `lua/pretest/config.lua` | defaults + merge user opts |
 | `lua/pretest/commands.lua` | `:Pretest` subcommand dispatch + completion |
-| `lua/pretest/prob.lua` | `.prob` path, load/save, TC CRUD |
+| `lua/pretest/prob.lua` | `.prob` path, load/save, TC CRUD, Companion JSON mapping |
+| `lua/pretest/companion.lua` | Competitive Companion HTTP receive |
 | `lua/pretest/runner.lua` | compile, run, timeout, verdicts |
 | `lua/pretest/ui.lua` | sidebar/float, navigation, editable Input/Expected |
 | `lua/pretest/util.lua` | paths, md5, text normalize, notify |
 
-Do not pull Competitive Companion, online submit, or custom checkers into v1 modules.
+Do not pull online submit or custom checkers into v1 modules.
 
 ## `.prob` compatibility rules
 
@@ -45,7 +46,6 @@ Do not pull Competitive Companion, online submit, or custom checkers into v1 mod
 
 ## Out of scope (v1)
 
-- Competitive Companion receive
 - Online submission
 - Custom checkers / interactive problems
 - Cloning CPH webview UI

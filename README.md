@@ -14,6 +14,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Edit problem time/memory limits with `:Pretest edit_limits`
 - Verdicts: AC, WA, RE, TLE, CE
+- Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
 
 ## Install (lazy.nvim)
 
@@ -69,6 +70,18 @@ require("pretest").setup({
       run = { exec = "python3" },
     },
   },
+  companion = {
+    port = 27121, -- Competitive Companion (same default as CPH)
+    listen_on_setup = false,
+    extension = "cpp",
+    template = nil, -- path, or { cpp = "...", py = "..." }
+    problem_path = "{cwd}/{problem}.{ext}", -- G_Castle_Defense.cpp
+    contest_dir = "{cwd}",
+    contest_problem_path = "{file}.{ext}", -- A.cpp (letter / number prefix)
+    prompt_path = true, -- confirm path / contest directory
+    open = true, -- :edit received source and show UI
+    replace_testcases = true, -- false → Keep/Replace prompt
+  },
 })
 ```
 
@@ -91,6 +104,12 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 :Pretest edit [index]
 :Pretest delete [index]
 :Pretest edit_limits
+:Pretest receive
+:Pretest receive problem
+:Pretest receive contest
+:Pretest receive persistently
+:Pretest receive stop
+:Pretest receive status
 ```
 
 ## `.prob` compatibility
@@ -110,6 +129,32 @@ Path pattern (same directory for `.prob` and compile binaries):
 ```
 
 `artifact_dir` is `save_dir` when set, otherwise `{src_dir}/.pretest`. `.prob` names use the full source basename (with extension) plus MD5 of the absolute source path, matching the common CPH naming pattern.
+
+## Competitive Companion
+
+Install the [Competitive Companion](https://github.com/jmerle/competitive-companion) browser extension. pretest listens on `127.0.0.1:27121` by default (already in Companion's port list), so no extra Companion config is required.
+
+```vim
+:Pretest receive                " write tests and limits into the current source's .prob (once)
+:Pretest receive problem        " create source + .prob, then open it (once)
+:Pretest receive contest        " wait for a full contest batch, create files in cwd (once)
+:Pretest receive persistently   " keep listening; contest if batch size > 1, else ask
+:Pretest receive stop
+:Pretest receive status
+```
+
+Then click Companion's green plus on a problem or contest page.
+
+If bind fails, another process is using the port (CPH, CompetiTest, or another Neovim). Change `companion.port` or stop the other listener.
+
+Received source names come from the problem title, not Java `taskClass`:
+
+- **problem:** `{problem}` → `G_Castle_Defense.cpp` (`G. Castle Defense`)
+- **contest:** `{file}` → `A.cpp`, `B.cpp` (letter/number prefix; full slug if there is none)
+
+`{cwd}` is Neovim's current working directory. Placeholders: `{cwd}`, `{home}`, `{name}`, `{index}`, `{slug}`, `{problem}`, `{file}`, `{task_class}`, `{ext}`, `{group}`, `{judge}`, `{contest}`. Paths may also be a function `(task, ext) -> string`.
+
+`.prob` files still follow the usual `artifact_dir` rules next to each source.
 
 ## License
 

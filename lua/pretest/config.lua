@@ -21,6 +21,35 @@ local M = {}
 ---@field sidebar_sections { header: number, input: number, expected: number, output: number }
 ---@field float_sections { header: number, input: number, expected: number, output: number }
 ---@field languages table<string, pretest.LangConfig>
+---@field companion pretest.CompanionConfig
+
+---@class pretest.CCTask
+---@field name string
+---@field group string
+---@field url string
+---@field interactive boolean?
+---@field memoryLimit number
+---@field timeLimit number
+---@field tests { input: string, output: string }[]
+---@field testType string?
+---@field input table?
+---@field output table?
+---@field languages { java?: { mainClass?: string, taskClass?: string }, [string]: any }?
+---@field batch { id: string, size: integer }?
+
+---@alias pretest.CompanionPath string|(fun(task: pretest.CCTask, ext: string): string)
+
+---@class pretest.CompanionConfig
+---@field port integer
+---@field listen_on_setup boolean
+---@field extension string
+---@field template string|table<string, string>|nil
+---@field problem_path pretest.CompanionPath
+---@field contest_dir pretest.CompanionPath
+---@field contest_problem_path pretest.CompanionPath
+---@field prompt_path boolean
+---@field open boolean
+---@field replace_testcases boolean
 
 ---@class pretest.RunCtx
 ---@field src_path string
@@ -89,6 +118,18 @@ local defaults = {
         end,
       },
     },
+  },
+  companion = {
+    port = 27121,
+    listen_on_setup = false,
+    extension = "cpp",
+    template = nil,
+    problem_path = "{cwd}/{problem}.{ext}",
+    contest_dir = "{cwd}",
+    contest_problem_path = "{file}.{ext}",
+    prompt_path = true,
+    open = true,
+    replace_testcases = true,
   },
 }
 

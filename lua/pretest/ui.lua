@@ -1655,4 +1655,81 @@ function M.refresh()
   end
 end
 
+local function focus_input_win()
+  if not session then
+    return
+  end
+  for _, win in ipairs(session.winids) do
+    if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
+      vim.api.nvim_set_current_win(win)
+      return
+    end
+  end
+end
+
+---Open UI for the existing session without resolving the current buffer.
+local function ensure_ui_open()
+  if not session then
+    return
+  end
+  if M.is_open() then
+    render()
+    focus_input_win()
+    return
+  end
+  open_layout(session.ui_mode)
+  setup_buf_autocmds()
+  render()
+  focus_input_win()
+end
+
+---Save `problem` for `src_path`, adopt it into the session, and show the UI.
+---@param src_path string
+---@param problem pretest.Problem
+---@return boolean
+function M.apply_problem(src_path, problem)
+  src_path = util.abspath(src_path)
+  problem.srcPath = src_path
+  local ppath = prob.prob_path(src_path)
+  if not prob.save(problem, ppath) then
+    return false
+  end
+
+  local function adopt(s)
+    s.problem = problem
+    s.prob_path = ppath or s.prob_path
+    s.results = {}
+    s.compile_stderr = ""
+    if #problem.tests == 0 then
+      s.index = 0
+    else
+      s.index = 1
+    end
+  end
+
+  if session and session.src_path == src_path then
+    adopt(session)
+    ensure_ui_open()
+    return true
+  end
+
+  local function focus_non_ui_win()
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if valid_win(win) and not is_ui_buf(vim.api.nvim_win_get_buf(win)) then
+        vim.api.nvim_set_current_win(win)
+        return
+      end
+    end
+  end
+  focus_non_ui_win()
+  vim.cmd.edit(vim.fn.fnameescape(src_path))
+  local s = M.ensure_session()
+  if not s then
+    return false
+  end
+  adopt(s)
+  ensure_ui_open()
+  return true
+end
+
 return M
