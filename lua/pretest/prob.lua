@@ -22,18 +22,15 @@ local M = {}
 ---@return string|nil
 function M.prob_path(src_path)
   src_path = util.abspath(src_path)
+  -- CPH-compatible: basename includes extension (e.g. .main.cpp_<md5>.prob).
   local base = vim.fn.fnamemodify(src_path, ":t")
   local dir = util.artifact_dir(src_path)
-  -- Hash only when save_dir is shared; next to the source, basename is enough.
-  if util.uses_save_dir() then
-    local hash = util.md5(src_path)
-    if not hash then
-      util.notify("failed to compute md5 for srcPath", vim.log.levels.ERROR)
-      return nil
-    end
-    return vim.fs.joinpath(dir, string.format(".%s_%s.prob", base, hash))
+  local hash = util.md5(src_path)
+  if not hash then
+    util.notify("failed to compute md5 for srcPath", vim.log.levels.ERROR)
+    return nil
   end
-  return vim.fs.joinpath(dir, string.format(".%s.prob", base))
+  return vim.fs.joinpath(dir, string.format(".%s_%s.prob", base, hash))
 end
 
 ---@param src_path string

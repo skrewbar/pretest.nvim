@@ -19,14 +19,15 @@ function M.uses_save_dir()
   return type(save_dir) == "string" and save_dir ~= ""
 end
 
----Directory for `.prob` and binaries: `save_dir` if set, else source file's directory.
+---Directory for `.prob` and binaries: `save_dir` if set, else `{src_dir}/.pretest`.
 ---@param src_path string
 ---@return string
 function M.artifact_dir(src_path)
   if M.uses_save_dir() then
     return vim.fn.expand(require("pretest.config").get().save_dir)
   end
-  return vim.fn.fnamemodify(M.abspath(src_path), ":h")
+  local src_dir = vim.fn.fnamemodify(M.abspath(src_path), ":h")
+  return vim.fs.joinpath(src_dir, ".pretest")
 end
 
 ---MD5 of a string (matches common .prob naming: md5(srcPath)).
