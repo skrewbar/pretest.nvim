@@ -26,6 +26,7 @@ Do not pull online submit or custom checkers into v1 modules.
 - Independently implement read/write for the shared JSON schema. **Do not copy CPH (or any GPL) source.**
 - Filename: `.{basename}_{md5(absolute srcPath)}.prob` (basename includes extension, e.g. `main.cpp`).
 - Artifact directory: optional `save_dir`; if unset, `{src_dir}/.pretest`. `.prob` and binaries share this directory (`util.artifact_dir`). C++ binaries use `{stem}.out` locally, or `{stem}_{md5[1:8]}.out` when `save_dir` is set.
+- Source rename/move: `:Pretest rename` / `:Pretest move` reconnect `.prob` and binaries to the new absolute path. Do not treat that as a new problem (`switch_source`).
 - Preserve unknown JSON fields when saving when practical.
 - Do not use CPH trademarks/logos in docs or UI strings. Saying "compatible with `.prob` files" is fine.
 

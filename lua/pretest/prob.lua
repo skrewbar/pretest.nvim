@@ -95,6 +95,65 @@ function M.load_or_create(src_path)
   return data --[[@as pretest.Problem]], path
 end
 
+---Move a `.prob` to the name implied by `new_src`. Updates `srcPath` (and
+---`url` / local `name` when they still match the old path). `problem` is
+---mutated when provided; otherwise the old file is loaded from disk.
+---@param old_src string
+---@param new_src string
+---@param problem pretest.Problem|nil
+---@return pretest.Problem|nil
+---@return string|nil new_path
+---@return string|nil err
+function M.relocate(old_src, new_src, problem)
+  old_src = util.abspath(old_src)
+  new_src = util.abspath(new_src)
+  local old_path = M.prob_path(old_src)
+  local new_path = M.prob_path(new_src)
+  if not new_path then
+    return nil, nil, "failed to compute new .prob path"
+  end
+
+  if old_path ~= new_path and vim.fn.filereadable(new_path) == 1 then
+    return nil, new_path, "destination .prob already exists: " .. new_path
+  end
+
+  if not problem then
+    if old_path then
+      local content = util.read_file(old_path)
+      if content then
+        local ok, data = pcall(vim.json.decode, content)
+        if ok and type(data) == "table" then
+          problem = data --[[@as pretest.Problem]]
+        end
+      end
+    end
+  end
+
+  if not problem then
+    return nil, new_path, nil
+  end
+
+  local old_stem = vim.fn.fnamemodify(old_src, ":t:r")
+  local new_stem = vim.fn.fnamemodify(new_src, ":t:r")
+  if problem.name == "Local: " .. old_stem then
+    problem.name = "Local: " .. new_stem
+  end
+  if problem.url == old_src then
+    problem.url = new_src
+  end
+  problem.srcPath = new_src
+
+  if not M.save(problem, new_path) then
+    return problem, new_path, "failed to write .prob: " .. new_path
+  end
+
+  if old_path and old_path ~= new_path and vim.fn.filereadable(old_path) == 1 then
+    vim.fn.delete(old_path)
+  end
+
+  return problem, new_path, nil
+end
+
 ---@param problem pretest.Problem
 ---@param path string|nil
 ---@return boolean

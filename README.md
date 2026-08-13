@@ -107,6 +107,8 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 :Pretest delete [index]
 :Pretest edit_limits
 :Pretest edit_name
+:Pretest rename <name>
+:Pretest move <path>
 :Pretest receive
 :Pretest receive problem
 :Pretest receive contest
@@ -132,6 +134,8 @@ Path pattern (same directory for `.prob` and compile binaries):
 ```
 
 `artifact_dir` is `save_dir` when set, otherwise `{src_dir}/.pretest`. `.prob` names use the full source basename (with extension) plus MD5 of the absolute source path, matching the common CPH naming pattern.
+
+`:Pretest rename <name>` renames the source relative to its directory; `:Pretest move <path>` moves it relative to the cwd (a directory destination keeps the current basename). Both rewrite `.prob` and the compile binary for the new absolute path. Neovim `:saveas` and an external `mv` do not.
 
 ## Competitive Companion
 

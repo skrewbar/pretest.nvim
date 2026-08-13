@@ -15,6 +15,8 @@ local subcommands = {
   "delete",
   "edit_limits",
   "edit_name",
+  "rename",
+  "move",
   "receive",
 }
 
@@ -94,6 +96,12 @@ function M.command(args)
     ui.edit_limits()
   elseif sub == "edit_name" then
     ui.edit_name()
+  elseif sub == "rename" then
+    local dest = table.concat(vim.list_slice(parts, 2), " ")
+    ui.move_source(dest, { relative_to = "src_dir" })
+  elseif sub == "move" then
+    local dest = table.concat(vim.list_slice(parts, 2), " ")
+    ui.move_source(dest, { relative_to = "cwd" })
   elseif sub == "receive" then
     local companion = require("pretest.companion")
     local mode = parts[2]
@@ -138,6 +146,12 @@ function M.complete(arglead, cmdline)
       end
     end
     return matches
+  end
+
+  local completing_path = (parts[2] == "rename" or parts[2] == "move")
+    and ((#parts == 2 and cmdline:match("%s$")) or (#parts >= 3 and not cmdline:match("%s$")))
+  if completing_path then
+    return vim.fn.getcompletion(arglead, "file")
   end
 
   local completing_receive = parts[2] == "receive"

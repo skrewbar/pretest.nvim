@@ -54,6 +54,37 @@ function M.bin_path_for(src_path, ft)
   return vim.fs.joinpath(dir, name)
 end
 
+---Rename the compile binary when its path changes with the source. No-op if
+---the old binary is missing or the paths are identical.
+---@param old_src string
+---@param new_src string
+---@param old_ft string
+---@param new_ft string|nil
+---@return boolean
+function M.relocate_bin(old_src, new_src, old_ft, new_ft)
+  new_ft = new_ft or old_ft
+  local old_bin = M.bin_path_for(old_src, old_ft)
+  local new_bin = M.bin_path_for(new_src, new_ft)
+  if old_bin == new_bin then
+    return true
+  end
+  if vim.fn.filereadable(old_bin) == 0 then
+    return true
+  end
+  local parent = vim.fn.fnamemodify(new_bin, ":h")
+  if parent ~= "" and vim.fn.isdirectory(parent) == 0 then
+    vim.fn.mkdir(parent, "p")
+  end
+  if vim.fn.filereadable(new_bin) == 1 then
+    vim.fn.delete(new_bin)
+  end
+  if vim.fn.rename(old_bin, new_bin) ~= 0 then
+    util.notify("failed to move binary to " .. new_bin, vim.log.levels.WARN)
+    return false
+  end
+  return true
+end
+
 ---@param src_path string
 ---@param ft string
 ---@param on_done fun(ok: boolean, stderr: string)

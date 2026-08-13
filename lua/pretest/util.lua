@@ -184,6 +184,18 @@ function M.resolve_size(spec, min_spec, max_spec, total, fallback)
   return math.max(1, math.min(math.floor(size + 1e-9), total))
 end
 
+---@param path string
+---@return string|nil
+function M.filetype_from_path(path)
+  local ext = vim.fn.fnamemodify(path, ":e"):lower()
+  if ext == "cpp" or ext == "cc" or ext == "cxx" or ext == "c" then
+    return "cpp"
+  elseif ext == "py" then
+    return "python"
+  end
+  return nil
+end
+
 ---@param bufnr integer|nil
 ---@return string|nil, string|nil # path, filetype
 function M.source_from_buf(bufnr)
@@ -195,12 +207,7 @@ function M.source_from_buf(bufnr)
   local path = M.abspath(name)
   local ft = vim.bo[bufnr].filetype
   if ft == "" then
-    local ext = vim.fn.fnamemodify(path, ":e")
-    if ext == "cpp" or ext == "cc" or ext == "cxx" or ext == "c" then
-      ft = "cpp"
-    elseif ext == "py" then
-      ft = "python"
-    end
+    ft = M.filetype_from_path(path)
   end
   return path, ft
 end

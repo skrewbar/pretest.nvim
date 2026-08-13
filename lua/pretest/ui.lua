@@ -1860,4 +1860,186 @@ function M.apply_problem(src_path, problem)
   return true
 end
 
+---@param dest string
+---@param old_src string
+---@param relative_to "src_dir"|"cwd"
+---@return string
+local function resolve_move_dest(dest, old_src, relative_to)
+  dest = vim.fn.expand(dest)
+  local abs
+  if relative_to == "src_dir" and not dest:match("^/") and not dest:match("^%a:[/\\]") then
+    local src_dir = vim.fn.fnamemodify(old_src, ":h")
+    abs = util.abspath(vim.fs.joinpath(src_dir, dest))
+  else
+    abs = util.abspath(dest)
+  end
+  local as_dir = dest:match("[/\\]$") or vim.fn.isdirectory(abs) == 1
+  if as_dir then
+    abs = util.abspath(vim.fs.joinpath(abs, vim.fn.fnamemodify(old_src, ":t")))
+  end
+  return abs
+end
+
+---@param bufnr integer
+---@param old_name string
+local function wipe_leftover_buf(bufnr, old_name)
+  if old_name == "" then
+    return
+  end
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if b ~= bufnr and vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == old_name then
+      pcall(vim.api.nvim_buf_delete, b, { force = true })
+    end
+  end
+end
+
+---Rename or move the source file and reconnect `.prob` / binary / session.
+---@param dest string|nil
+---@param opts { relative_to?: "src_dir"|"cwd" }|nil
+function M.move_source(dest, opts)
+  opts = opts or {}
+  local relative_to = opts.relative_to or "cwd"
+  dest = dest and vim.trim(dest) or ""
+  if dest == "" then
+    if relative_to == "src_dir" then
+      util.notify("usage: Pretest rename <name>", vim.log.levels.WARN)
+    else
+      util.notify("usage: Pretest move <path>", vim.log.levels.WARN)
+    end
+    return
+  end
+
+  local bufnr = vim.api.nvim_get_current_buf()
+  local old_src, ft
+  if is_ui_buf(bufnr) then
+    if not session then
+      util.notify("no Pretest session — open from a source file", vim.log.levels.ERROR)
+      return
+    end
+    bufnr = session.src_bufnr
+    old_src = session.src_path
+    ft = session.filetype
+  else
+    old_src, ft = util.source_from_buf(bufnr)
+    if not old_src then
+      util.notify("no file in current buffer", vim.log.levels.ERROR)
+      return
+    end
+    if ft ~= "cpp" and ft ~= "python" then
+      util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
+      return
+    end
+  end
+
+  old_src = util.abspath(old_src)
+  local new_src = resolve_move_dest(dest, old_src, relative_to)
+  if new_src == old_src then
+    util.notify("already at " .. new_src)
+    return
+  end
+
+  local new_ft = util.filetype_from_path(new_src)
+  if new_ft ~= "cpp" and new_ft ~= "python" then
+    util.notify("unsupported destination filetype: " .. vim.fn.fnamemodify(new_src, ":t"), vim.log.levels.ERROR)
+    return
+  end
+
+  if vim.fn.filereadable(new_src) == 1 or vim.fn.isdirectory(new_src) == 1 then
+    util.notify("destination already exists: " .. new_src, vim.log.levels.ERROR)
+    return
+  end
+
+  local new_prob = prob.prob_path(new_src)
+  local old_prob = prob.prob_path(old_src)
+  if new_prob and new_prob ~= old_prob and vim.fn.filereadable(new_prob) == 1 then
+    util.notify("destination .prob already exists: " .. new_prob, vim.log.levels.ERROR)
+    return
+  end
+
+  local live = session and session.src_path == old_src
+  if live then
+    M.flush_edits()
+  end
+
+  if valid_buf(bufnr) then
+    local needs_write = vim.bo[bufnr].modified or vim.fn.filereadable(old_src) == 0
+    if needs_write then
+      local ok, err = pcall(function()
+        vim.api.nvim_buf_call(bufnr, function()
+          vim.cmd("write")
+        end)
+      end)
+      if not ok then
+        util.notify("failed to write source: " .. tostring(err), vim.log.levels.ERROR)
+        return
+      end
+    end
+  elseif vim.fn.filereadable(old_src) == 0 then
+    util.notify("source file not found: " .. old_src, vim.log.levels.ERROR)
+    return
+  end
+
+  local parent = vim.fn.fnamemodify(new_src, ":h")
+  if parent ~= "" and vim.fn.isdirectory(parent) == 0 then
+    vim.fn.mkdir(parent, "p")
+  end
+
+  if live then
+    session.applying = true
+  end
+
+  local function finish_applying()
+    if session then
+      session.applying = false
+    end
+  end
+
+  if vim.fn.rename(old_src, new_src) ~= 0 then
+    finish_applying()
+    util.notify("failed to move " .. old_src .. " → " .. new_src, vim.log.levels.ERROR)
+    return
+  end
+
+  if valid_buf(bufnr) then
+    local old_name = vim.api.nvim_buf_get_name(bufnr)
+    pcall(vim.api.nvim_buf_set_name, bufnr, new_src)
+    wipe_leftover_buf(bufnr, old_name)
+  end
+
+  local problem = live and session.problem or nil
+  local relocated, new_ppath, err = prob.relocate(old_src, new_src, problem)
+  runner.relocate_bin(old_src, new_src, ft, new_ft)
+
+  if live then
+    if parked[old_src] then
+      parked[new_src] = parked[old_src]
+      parked[old_src] = nil
+    end
+    session.src_path = new_src
+    if valid_buf(bufnr) then
+      session.src_bufnr = bufnr
+    end
+    session.filetype = new_ft
+    session.prob_path = new_ppath
+    if relocated then
+      session.problem = relocated
+    elseif session.problem then
+      session.problem.srcPath = new_src
+    end
+  end
+
+  finish_applying()
+  if live and M.is_open() then
+    render()
+  end
+  if err then
+    util.notify(
+      "source moved to " .. new_src .. " but .prob was not: " .. err,
+      vim.log.levels.ERROR
+    )
+    return
+  end
+  util.notify(string.format("moved %s → %s", vim.fn.fnamemodify(old_src, ":t"), new_src))
+end
+
 return M
