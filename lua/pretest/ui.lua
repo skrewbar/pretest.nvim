@@ -226,6 +226,7 @@ local function apply_highlights()
     PretestRE = "DiagnosticError",
     PretestTLE = "DiagnosticWarn",
     PretestCE = "DiagnosticError",
+    PretestStopped = "DiagnosticWarn",
     PretestRunning = "DiagnosticInfo",
     PretestPending = "Comment",
     PretestCurrent = "Title",
@@ -258,7 +259,9 @@ local HINT_SEGMENTS = {
     { ":w", true },
     { " save  ", false },
     { "q", true },
-    { " close", false },
+    { " close  ", false },
+    { "s", true },
+    { " stop", false },
   },
   {
     { "R", true },
@@ -432,7 +435,7 @@ local CASES_LABEL = "Testcases "
 ---@return string hl
 local function ac_summary()
   local total = (session and session.problem and #session.problem.tests) or 0
-  local ac, has_fail, has_running = 0, false, false
+  local ac, has_fail, has_running, has_stopped = 0, false, false, false
   if session then
     for i = 1, total do
       local v = session.results[i] and session.results[i].verdict
@@ -440,6 +443,8 @@ local function ac_summary()
         ac = ac + 1
       elseif v == "Running" then
         has_running = true
+      elseif v == "Stopped" then
+        has_stopped = true
       elseif v and v ~= "Pending" then
         has_fail = true
       end
@@ -452,6 +457,8 @@ local function ac_summary()
     hl = "PretestWA"
   elseif has_running then
     hl = "PretestRunning"
+  elseif has_stopped then
+    hl = "PretestStopped"
   else
     hl = "PretestPending"
   end
@@ -480,6 +487,8 @@ local function verdict_hl(verdict)
     return "PretestTLE"
   elseif verdict == "CE" then
     return "PretestCE"
+  elseif verdict == "Stopped" then
+    return "PretestStopped"
   elseif verdict == "Running" then
     return "PretestRunning"
   end
@@ -511,7 +520,7 @@ local function format_case_line(i, n, idx, result)
     return num, 0, #num, nil, nil, verdict_hl(verdict)
   end
 
-  -- Pad so time always starts at the same column (longest shown: "Running").
+  -- Pad so time always starts at the same column (longest shown: "Running"/"Stopped").
   local VERDICT_WIDTH = 7
   local verdict_s = string.format("%-" .. VERDICT_WIDTH .. "s", verdict)
   local time_s = result.time_ms and string.format(" %.0fms", result.time_ms) or ""
@@ -1131,6 +1140,9 @@ local function map_ui_keys(buf)
   end, opts)
   vim.keymap.set("n", "q", function()
     M.close()
+  end, opts)
+  vim.keymap.set("n", "s", function()
+    M.stop()
   end, opts)
   vim.keymap.set("n", "R", function()
     require("pretest.commands").run(nil, true)
@@ -1807,10 +1819,13 @@ function M.run(indices, do_compile)
         render()
       end
     end,
-    on_all_done = function()
+    on_all_done = function(cancelled)
       local st, live = state_for(run_src)
       if live then
         render()
+      end
+      if cancelled then
+        return
       end
       local ac, total = 0, #targets
       for _, i in ipairs(targets) do
@@ -1822,6 +1837,27 @@ function M.run(indices, do_compile)
       util.notify(string.format("done: %d/%d AC", ac, total))
     end,
   })
+end
+
+function M.stop()
+  local s = session
+  if not s then
+    util.notify("no session", vim.log.levels.WARN)
+    return
+  end
+  if not runner.stop(s.src_path) then
+    util.notify("not running")
+    return
+  end
+  for _, r in pairs(s.results) do
+    if r.verdict == "Running" then
+      r.verdict = "Stopped"
+    end
+  end
+  if M.is_open() then
+    render()
+  end
+  util.notify("stopped")
 end
 
 function M.refresh()

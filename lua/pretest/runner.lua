@@ -4,11 +4,19 @@ local util = require("pretest.util")
 local M = {}
 
 ---@class pretest.CaseResult
----@field verdict "Pending"|"Running"|"AC"|"WA"|"RE"|"TLE"|"CE"
+---@field verdict "Pending"|"Running"|"AC"|"WA"|"RE"|"TLE"|"CE"|"Stopped"
 ---@field stdout string
 ---@field stderr string
 ---@field time_ms number|nil
 ---@field code integer|nil
+
+---@class pretest.ActiveRun
+---@field cancelled boolean
+---@field compile_obj vim.SystemObj|nil
+---@field kill_current fun()|nil
+
+---@type table<string, pretest.ActiveRun>
+local active = {}
 
 ---@param args string[]
 ---@param ctx pretest.RunCtx
@@ -86,18 +94,61 @@ function M.relocate_bin(old_src, new_src, old_ft, new_ft)
   return true
 end
 
+---@param obj vim.SystemObj|nil
+local function kill_compile(obj)
+  if not obj then
+    return
+  end
+  pcall(function()
+    obj:kill("sigkill")
+  end)
+end
+
+---Stop an in-flight compile/run for `src_path`. Remaining cases are not started.
+---@param src_path string
+---@return boolean
+function M.stop(src_path)
+  src_path = util.abspath(src_path)
+  local job = active[src_path]
+  if not job or job.cancelled then
+    return false
+  end
+  job.cancelled = true
+  kill_compile(job.compile_obj)
+  if job.kill_current then
+    job.kill_current()
+  end
+  return true
+end
+
+---@param src_path string|nil
+---@return boolean
+function M.is_running(src_path)
+  if src_path then
+    local job = active[util.abspath(src_path)]
+    return job ~= nil and not job.cancelled
+  end
+  for _, job in pairs(active) do
+    if not job.cancelled then
+      return true
+    end
+  end
+  return false
+end
+
 ---@param src_path string
 ---@param ft string
 ---@param on_done fun(ok: boolean, stderr: string)
+---@return vim.SystemObj|nil
 function M.compile(src_path, ft, on_done)
   local lang = config.language(ft)
   if not lang then
     on_done(false, "unsupported filetype: " .. ft)
-    return
+    return nil
   end
   if not lang.compile then
     on_done(true, "")
-    return
+    return nil
   end
 
   local ctx = {
@@ -107,29 +158,31 @@ function M.compile(src_path, ft, on_done)
   local exec = eval_field(lang.compile.exec, ctx)
   if type(exec) ~= "string" then
     on_done(false, "compile.exec not configured for filetype: " .. ft)
-    return
+    return nil
   end
   local raw_args = eval_field(lang.compile.args, ctx)
   local args = expand_args(type(raw_args) == "table" and raw_args or {}, ctx)
   local cmd = { exec }
   vim.list_extend(cmd, args)
 
-  local ok, err = pcall(vim.system, cmd, { text = true, cwd = vim.fn.fnamemodify(ctx.src_path, ":h") }, function(obj)
+  local ok, obj = pcall(vim.system, cmd, { text = true, cwd = vim.fn.fnamemodify(ctx.src_path, ":h") }, function(result)
     vim.schedule(function()
-      if obj.code == 0 then
-        on_done(true, obj.stderr or "")
+      if result.code == 0 then
+        on_done(true, result.stderr or "")
       else
         local msg = table.concat({
-          obj.stderr or "",
-          obj.stdout or "",
+          result.stderr or "",
+          result.stdout or "",
         }, "\n")
         on_done(false, vim.trim(msg))
       end
     end)
   end)
   if not ok then
-    on_done(false, tostring(err))
+    on_done(false, tostring(obj))
+    return nil
   end
+  return obj
 end
 
 ---Run one testcase with CompetiTest-style timing:
@@ -140,6 +193,7 @@ end
 ---@param expected string
 ---@param time_limit_ms integer
 ---@param on_done fun(result: pretest.CaseResult)
+---@return fun()|nil kill
 function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
   local lang = config.language(ft)
   if not lang or not lang.run then
@@ -182,6 +236,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
   local stderr_chunks = {}
   local starting_time ---@type integer|nil
   local killed = false
+  local user_cancelled = false
   local timer ---@type uv.uv_timer_t|nil
   local exited, stdout_done, stderr_done = false, false, false
   local exit_code, exit_signal ---@type integer|nil, integer|nil
@@ -211,7 +266,9 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
       and time_limit_ms > 0
       and elapsed_ms >= time_limit_ms
 
-    if is_timeout then
+    if user_cancelled then
+      result.verdict = "Stopped"
+    elseif is_timeout then
       result.verdict = "TLE"
     elseif exit_signal and exit_signal ~= 0 then
       result.verdict = "RE"
@@ -332,6 +389,21 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
 
   -- Start the clock after spawn/stdio setup, matching CompetiTest.
   starting_time = uv.now()
+
+  return function()
+    if finished or user_cancelled then
+      return
+    end
+    user_cancelled = true
+    if timer and not timer:is_closing() then
+      timer:stop()
+      timer:close()
+      timer = nil
+    end
+    if handle and not handle:is_closing() then
+      handle:kill("sigkill")
+    end
+  end
 end
 
 ---@param src_path string
@@ -339,9 +411,16 @@ end
 ---@param problem pretest.Problem
 ---@param indices integer[]|nil 1-based indices; nil = all
 ---@param do_compile boolean
----@param hooks { on_compile_start?: fun(), on_compile_done?: fun(ok: boolean, stderr: string), on_case_start?: fun(i: integer), on_case_done?: fun(i: integer, result: pretest.CaseResult), on_all_done?: fun() }
+---@param hooks { on_compile_start?: fun(), on_compile_done?: fun(ok: boolean, stderr: string), on_case_start?: fun(i: integer), on_case_done?: fun(i: integer, result: pretest.CaseResult), on_all_done?: fun(cancelled: boolean) }
 function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
   hooks = hooks or {}
+  src_path = util.abspath(src_path)
+  M.stop(src_path)
+
+  ---@type pretest.ActiveRun
+  local job = { cancelled = false }
+  active[src_path] = job
+
   local list = indices
   if not list or #list == 0 then
     list = {}
@@ -350,13 +429,29 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
     end
   end
 
+  local function finish_all()
+    if active[src_path] ~= job then
+      return
+    end
+    active[src_path] = nil
+    if hooks.on_all_done then
+      hooks.on_all_done(job.cancelled)
+    end
+  end
+
+  local function is_current()
+    return active[src_path] == job
+  end
+
   local function run_queue(start_at)
     local i = start_at
     local function next_case()
+      if job.cancelled or not is_current() then
+        finish_all()
+        return
+      end
       if i > #list then
-        if hooks.on_all_done then
-          hooks.on_all_done()
-        end
+        finish_all()
         return
       end
       local idx = list[i]
@@ -369,9 +464,21 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
       if hooks.on_case_start then
         hooks.on_case_start(idx)
       end
-      M.run_one(src_path, ft, tc.input, tc.output, problem.timeLimit or 3000, function(result)
+      if job.cancelled or not is_current() then
+        finish_all()
+        return
+      end
+      job.kill_current = M.run_one(src_path, ft, tc.input, tc.output, problem.timeLimit or 3000, function(result)
+        job.kill_current = nil
+        if not is_current() then
+          return
+        end
         if hooks.on_case_done then
           hooks.on_case_done(idx, result)
+        end
+        if job.cancelled then
+          finish_all()
+          return
         end
         i = i + 1
         next_case()
@@ -388,7 +495,12 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
   if hooks.on_compile_start then
     hooks.on_compile_start()
   end
-  M.compile(src_path, ft, function(ok, stderr)
+  job.compile_obj = M.compile(src_path, ft, function(ok, stderr)
+    job.compile_obj = nil
+    if job.cancelled or not is_current() then
+      finish_all()
+      return
+    end
     if hooks.on_compile_done then
       hooks.on_compile_done(ok, stderr)
     end
@@ -405,9 +517,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
           hooks.on_case_done(idx, ce)
         end
       end
-      if hooks.on_all_done then
-        hooks.on_all_done()
-      end
+      finish_all()
       return
     end
     run_queue(1)

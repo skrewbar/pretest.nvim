@@ -10,6 +10,7 @@ local subcommands = {
   "run",
   "run_current",
   "run_no_compile",
+  "stop",
   "add",
   "edit",
   "delete",
@@ -84,6 +85,8 @@ function M.command(args)
   elseif sub == "run_no_compile" then
     local rest = vim.list_slice(parts, 2)
     M.run(parse_indices(rest), false)
+  elseif sub == "stop" then
+    ui.stop()
   elseif sub == "add" then
     ui.add_testcase()
   elseif sub == "edit" then

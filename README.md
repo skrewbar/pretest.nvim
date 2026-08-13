@@ -14,7 +14,8 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Edit problem name with `:Pretest edit_name`
 - Edit problem time/memory limits with `:Pretest edit_limits`
-- Verdicts: AC, WA, RE, TLE, CE
+- Verdicts: AC, WA, RE, TLE, CE, Stopped
+- Stop an in-flight compile/run with `:Pretest stop` or `s` in the UI
 - Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
 
 ## Install (lazy.nvim)
@@ -31,6 +32,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
     { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
     { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
     { "<leader>tn", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
+    { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
     { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
     { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
     { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
@@ -104,6 +106,7 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 :Pretest run [index...]
 :Pretest run_current
 :Pretest run_no_compile [index...]
+:Pretest stop
 :Pretest add
 :Pretest edit [index]
 :Pretest delete [index]
