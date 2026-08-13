@@ -211,6 +211,12 @@ local HINT_SEGMENTS = {
     { "<C-r>", true },
     { " no-compile-one", false },
   },
+  {
+    { "<Tab>", true },
+    { "/", false },
+    { "<S-Tab>", true },
+    { " sections", false },
+  },
 }
 
 ---@return string[] lines
@@ -618,6 +624,62 @@ local function find_win_for_buf(buf)
   return nil
 end
 
+---@param win integer|nil
+local function sync_header_cursor(win)
+  if not session or session.index < 1 then
+    return
+  end
+  win = win or vim.api.nvim_get_current_win()
+  if not valid_win(win) or vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
+    return
+  end
+  local layout = header_layout(#session.problem.tests)
+  local row = layout.cases_start + session.index - 1
+  session.applying = true
+  pcall(vim.api.nvim_win_set_cursor, win, { row + 1, 0 })
+  session.applying = false
+end
+
+---@return integer[]
+local function section_cycle_order()
+  if not session then
+    return {}
+  end
+  local order = {}
+  for _, key in ipairs({ "header", "input", "expected", "output", "stderr" }) do
+    local win = find_win_for_buf(session.bufs[key])
+    if win then
+      order[#order + 1] = win
+    end
+  end
+  return order
+end
+
+---@param delta integer
+local function focus_section(delta)
+  local wins = section_cycle_order()
+  if #wins == 0 then
+    return
+  end
+  local cur = vim.api.nvim_get_current_win()
+  local idx
+  for i, win in ipairs(wins) do
+    if win == cur then
+      idx = i
+      break
+    end
+  end
+  local next_idx
+  if not idx then
+    next_idx = delta > 0 and 1 or #wins
+  else
+    next_idx = ((idx - 1 + delta) % #wins) + 1
+  end
+  local target = wins[next_idx]
+  pcall(vim.api.nvim_set_current_win, target)
+  sync_header_cursor(target)
+end
+
 ---@return integer
 local function header_sep_width()
   if not session then
@@ -926,6 +988,12 @@ local function map_ui_keys(buf)
   vim.keymap.set("n", "<C-r>", function()
     require("pretest.commands").run({ session and session.index }, false)
   end, opts)
+  vim.keymap.set("n", "<Tab>", function()
+    focus_section(1)
+  end, opts)
+  vim.keymap.set("n", "<S-Tab>", function()
+    focus_section(-1)
+  end, opts)
 end
 
 local function setup_buf_autocmds()
@@ -1218,22 +1286,6 @@ function M.toggle_hints()
   if M.is_open() then
     render()
   end
-end
-
----@param win integer|nil
-local function sync_header_cursor(win)
-  if not session or session.index < 1 then
-    return
-  end
-  win = win or vim.api.nvim_get_current_win()
-  if not valid_win(win) or vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
-    return
-  end
-  local layout = header_layout(#session.problem.tests)
-  local row = layout.cases_start + session.index - 1
-  session.applying = true
-  pcall(vim.api.nvim_win_set_cursor, win, { row + 1, 0 })
-  session.applying = false
 end
 
 function M.next_case()

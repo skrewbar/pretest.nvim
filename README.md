@@ -10,6 +10,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Sidebar or floating UI (toggle at runtime)
 - Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
 - Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
+- Move between Header / Input / Expected / Output (and Stderr when shown) with `<Tab>` / `<S-Tab>`
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Edit problem time/memory limits with `:Pretest edit_limits`
 - Verdicts: AC, WA, RE, TLE, CE
