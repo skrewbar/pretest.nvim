@@ -2,7 +2,7 @@
 
 Local competitive programming test runner for Neovim.
 
-Compile, run, and judge test cases next to your source file. Test data is stored in a single `.prob` JSON file per problem.
+Compile, run, and judge test cases next to your source file. Test data is stored in a single `.prob` JSON file per problem under `.pretest/` (or `save_dir`).
 
 ## Features (v1)
 
@@ -18,26 +18,53 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 
 ```lua
 {
-  dir = vim.fn.expand("~/Programming/pretest.nvim"), -- or your clone path / GitHub url
+  "skrewbar/pretest.nvim",
   lazy = false,
-  opts = {
-    -- save_dir = vim.fn.expand("~/cp/.probs"), -- optional; omit to store next to the source
-    -- show_header_hints = true, -- default; starting value for :Pretest toggle_hints
-    -- sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
-    -- float_sections = { header = 1, input = 1, expected = 1, output = 1 },
-  },
+  opts = {}, -- defaults; override keys from Configuration as needed
   keys = {
-    { "<leader>tr", "<cmd>Pretest show<cr>", desc = "Pretest show" },
-    { "<leader>tt", "<cmd>Pretest toggle_ui<cr>", desc = "Pretest toggle UI" },
-    { "<leader>th", "<cmd>Pretest toggle_hints<cr>", desc = "Pretest toggle hints" },
-    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Pretest run" },
-    { "<leader>to", "<cmd>Pretest run_current<cr>", desc = "Pretest run current" },
-    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Pretest add" },
-    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Pretest edit" },
-    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Pretest delete" },
+    { "<leader>tu", "<cmd>Pretest show<cr>", desc = "Show/Toggle UI" },
+    { "<leader>tt", "<cmd>Pretest toggle_ui<cr>", desc = "Toggle UI mode" },
+    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
+    { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
+    { "<leader>tn", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
+    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
+    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
+    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
   },
 }
 ```
+
+## Configuration
+
+All keys are optional. `languages` is deep-merged, so you can override just `compile.exec`.
+
+```lua
+require("pretest").setup({
+  ui = "sidebar", -- or "float"
+  sidebar_width = 48,
+  float_width = 0.4, -- fraction of editor columns
+  float_height = 0.6, -- fraction of editor lines
+  save_dir = nil, -- nil → {src_dir}/.pretest
+  default_time_limit = 3000, -- ms
+  default_memory_limit = 1024, -- MB
+  show_header_hints = true, -- starting value for :Pretest toggle_hints
+  sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 }, -- relative heights
+  float_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  languages = {
+    cpp = {
+      compile = {
+        exec = "g++", -- e.g. "g++-16" or "clang++"
+        args = { "-std=gnu++23", "-Wall", "-O2", "-o", "$bin", "$src" },
+      },
+    },
+    python = {
+      run = { exec = "python3" },
+    },
+  },
+})
+```
+
+With lazy.nvim, pass the same table as `opts`.
 
 ## Commands
 
@@ -61,16 +88,16 @@ pretest.nvim reads and writes problem JSON files that are compatible with the `.
 Path pattern (same directory for `.prob` and compile binaries):
 
 ```text
-# next to the source (default)
-{src_dir}/.{basename}.prob
-{src_dir}/{stem}.out
+# under .pretest next to the source (default)
+{src_dir}/.pretest/.{basename}_{md5(srcPath)}.prob
+{src_dir}/.pretest/{stem}.out
 
-# when save_dir is set (hash avoids collisions across problems)
+# when save_dir is set (short hash on binaries avoids collisions)
 {save_dir}/.{basename}_{md5(srcPath)}.prob
 {save_dir}/{stem}_{md5(srcPath)[1:8]}.out
 ```
 
-`artifact_dir` is `save_dir` when set, otherwise the source file's directory. The MD5 suffix is only added when `save_dir` is set.
+`artifact_dir` is `save_dir` when set, otherwise `{src_dir}/.pretest`. `.prob` names use the full source basename (with extension) plus MD5 of the absolute source path, matching the common CPH naming pattern.
 
 ## License
 
