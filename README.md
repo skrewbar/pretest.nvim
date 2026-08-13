@@ -24,6 +24,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
   "skrewbar/pretest.nvim",
   -- lazy = false, -- required for companion.listen_on_setup (startup receive)
   opts = {}, -- defaults; override keys from Configuration as needed
+  cmd = "Pretest",
   keys = {
     { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
     { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
