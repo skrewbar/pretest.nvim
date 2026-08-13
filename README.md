@@ -54,7 +54,7 @@ require("pretest").setup({
     cpp = {
       compile = {
         exec = "g++", -- e.g. "g++-16" or "clang++"
-        args = { "-std=gnu++23", "-Wall", "-O2", "-o", "$bin", "$src" },
+        args = { "-o", "$bin", "$src" },
       },
     },
     python = {
@@ -65,6 +65,8 @@ require("pretest").setup({
 ```
 
 With lazy.nvim, pass the same table as `opts`.
+
+`$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there.
 
 ## Commands
 

@@ -57,7 +57,7 @@ local defaults = {
     cpp = {
       compile = {
         exec = "g++",
-        args = { "-std=gnu++23", "-Wall", "-O2", "-o", "$bin", "$src" },
+        args = { "-o", "$bin", "$src" },
       },
       run = {
         exec = function(ctx)
