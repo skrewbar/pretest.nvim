@@ -553,15 +553,15 @@ local function format_case_line(i, n, idx, result)
     return num, 0, #num, nil, nil, verdict_hl(verdict)
   end
 
-  -- Pad so time always starts at the same column (longest shown: "Running"/"Stopped"),
-  -- and reason starts at the same column after a right-aligned time field.
-  local VERDICT_WIDTH = 7
+  -- Pad so time always starts at the same column, and reason starts at the
+  -- same column after a right-aligned time field.
+  local VERDICT_WIDTH = 4
   local TIME_WIDTH = 7 -- "1234ms" / "   12ms"; fits up to 99999ms
   local verdict_s = string.format("%-" .. VERDICT_WIDTH .. "s", verdict)
   local time_label = result.time_ms and string.format("%.0fms", result.time_ms) or ""
   local reason_s = ""
   if verdict == "RE" and result.reason and result.reason ~= "" then
-    reason_s = " " .. result.reason
+    reason_s = "  " .. result.reason
   end
   local time_s = ""
   if time_label ~= "" or reason_s ~= "" then
