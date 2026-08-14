@@ -4,7 +4,7 @@ Local competitive programming test runner for Neovim.
 
 Compile, run, and judge test cases next to your source file. Test data is stored in a single `.prob` JSON file per problem under `.pretest/` (or `save_dir`).
 
-## Features (v1)
+## Features
 
 - Language runners via `languages` (C++ and Python by default)
 - Sidebar or floating UI (toggle at runtime)

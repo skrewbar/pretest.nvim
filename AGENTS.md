@@ -19,7 +19,7 @@ Neovim plugin for local competitive-programming pretest judging: load/save `.pro
 | `lua/pretest/ui.lua` | sidebar/float, navigation, editable Input/Expected |
 | `lua/pretest/util.lua` | paths, md5, text normalize, filetype, notify |
 
-Do not pull online submit or custom checkers into v1 modules.
+Do not pull online submit or custom checkers into these modules.
 
 ## `.prob` compatibility rules
 
@@ -48,7 +48,7 @@ Do not pull online submit or custom checkers into v1 modules.
 - No new dependencies unless clearly justified.
 - User-facing command is `:Pretest <subcommand>` (CompetiTest-style), not many top-level commands.
 
-## Out of scope (v1)
+## Out of scope
 
 - Online submission
 - Custom checkers / interactive problems
