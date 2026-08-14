@@ -9,6 +9,9 @@ local M = {}
 ---@field stderr string
 ---@field time_ms number|nil
 ---@field code integer|nil
+---@field signal integer|string|nil
+---@field reason string|nil
+---@field reason_detail string|nil
 
 ---@class pretest.ActiveRun
 ---@field cancelled boolean
@@ -209,13 +212,13 @@ end
 function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
   local lang = config.language(ft)
   if not lang or not lang.run then
-    on_done({
+    on_done(util.attach_re_cause({
       verdict = "RE",
       stdout = "",
       stderr = "unsupported filetype: " .. tostring(ft),
       time_ms = 0,
       code = -1,
-    })
+    }))
     return
   end
 
@@ -225,13 +228,13 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
   }
   local exec = eval_field(lang.run.exec, ctx)
   if type(exec) ~= "string" then
-    on_done({
+    on_done(util.attach_re_cause({
       verdict = "RE",
       stdout = "",
       stderr = "run.exec not configured for filetype: " .. tostring(ft),
       time_ms = 0,
       code = -1,
-    })
+    }))
     return
   end
   local args = eval_field(lang.run.args, ctx)
@@ -251,7 +254,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
   local user_cancelled = false
   local timer ---@type uv.uv_timer_t|nil
   local exited, stdout_done, stderr_done = false, false, false
-  local exit_code, exit_signal ---@type integer|nil, integer|nil
+  local exit_code, exit_signal ---@type integer|nil, integer|string|nil
   local elapsed_ms = 0
   local finished = false
 
@@ -271,6 +274,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
       stderr = err,
       time_ms = elapsed_ms,
       code = exit_code,
+      signal = exit_signal,
     }
 
     local is_timeout = killed
@@ -284,13 +288,15 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
       result.verdict = "TLE"
     elseif exit_signal and exit_signal ~= 0 then
       result.verdict = "RE"
-    elseif exit_code ~= 0 then
+    elseif exit_code ~= nil and exit_code ~= 0 then
       result.verdict = "RE"
     elseif util.outputs_equal(result.stdout, expected) then
       result.verdict = "AC"
     else
       result.verdict = "WA"
     end
+
+    util.attach_re_cause(result)
 
     vim.schedule(function()
       on_done(result)
@@ -344,13 +350,13 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, on_done)
     stdin:close()
     stdout:close()
     stderr:close()
-    on_done({
+    on_done(util.attach_re_cause({
       verdict = "RE",
       stdout = "",
       stderr = "failed to spawn: " .. tostring(exec),
       time_ms = 0,
       code = -1,
-    })
+    }))
     return
   end
 

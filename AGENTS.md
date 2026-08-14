@@ -33,10 +33,11 @@ Do not pull online submit or custom checkers into v1 modules.
 ## UI editing constraints
 
 - **Input** and **Expected** bodies are editable in their section buffers.
-- Problem **name** is edited via `:Pretest edit_name` (prompt); **timeLimit** / **memoryLimit** via `:Pretest edit_limits`. Header lines, Output, and Stderr are read-only.
+- Problem **name** is edited via `:Pretest edit_name` (prompt); **timeLimit** / **memoryLimit** via `:Pretest edit_limits`. Header lines, Output, Runtime Error, and Stderr are read-only.
 - Persist Input/Expected on `:w`, before TC switch (`<C-n>`/`<C-p>`/header cursor), and before `run`. Name and limits persist immediately on confirm.
 - Competitive Companion receive overwrites `.prob` name (and limits) from the incoming task.
 - Stderr section is shown only when non-empty.
+- Runtime Error section is shown only when the current case verdict is RE.
 
 ## Coding conventions
 

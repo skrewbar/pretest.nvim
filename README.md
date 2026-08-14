@@ -10,11 +10,12 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Sidebar or floating UI (toggle at runtime)
 - Header key hints (toggle with `:Pretest toggle_hints`; default on via `show_header_hints`)
 - Navigate test cases with `<C-n>` / `<C-p>`, or by moving the cursor onto a case line in the header
-- Move between Header / Input / Expected / Output (and Stderr when shown) with `<Tab>` / `<S-Tab>`
+- Move between Header / Input / Expected / Output (and Runtime Error / Stderr when shown) with `<Tab>` / `<S-Tab>`
 - Edit **Input** / **Expected** directly in the UI (`:w` or before run/switch)
 - Edit problem name with `:Pretest edit_name`
 - Edit problem time/memory limits with `:Pretest edit_limits`
 - Verdicts: AC, WA, RE, TLE, CE, Stopped
+- Runtime Error section (signal / exit code / exception) shown only on RE; process stderr stays in Stderr when non-empty
 - Stop an in-flight compile/run with `:Pretest stop` or `s` in the UI
 - Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
 
@@ -96,6 +97,12 @@ With lazy.nvim, pass the same table as `opts`.
 UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `max_*`) are numbers. Values in `(0, 1]` are fractions of editor columns (width) or lines (height); values `> 1` are cells. Min/max clamp after the base size is resolved. Omit a min/max key (or leave it `nil`) to skip that bound.
 
 `$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
+
+On RE, a **Runtime Error** section shows the signal, exit code, or exception (e.g. `SIGSEGV`). Process stderr is unchanged in **Stderr**. To get sanitizer traces, add flags yourself:
+
+```lua
+args = { "-o", "$bin", "$src", "-fsanitize=address,undefined" },
+```
 
 ## Commands
 

@@ -222,6 +222,174 @@ function M.filetype_from_path(path)
   return nil
 end
 
+local SIGNAL_DETAIL = {
+  SIGSEGV = "segmentation fault",
+  SIGABRT = "abort / assertion",
+  SIGFPE = "floating point exception",
+  SIGILL = "illegal instruction",
+  SIGBUS = "bus error",
+  SIGKILL = "killed (possible OOM)",
+  SIGPIPE = "broken pipe",
+  SIGSYS = "bad system call",
+  SIGXCPU = "CPU time limit",
+}
+
+local NTSTATUS = {
+  [0xC0000005] = { "ACCESS_VIOLATION", "access violation" },
+  [0xC0000094] = { "INT_DIVIDE_BY_ZERO", "integer divide by zero" },
+  [0xC00000FD] = { "STACK_OVERFLOW", "stack overflow" },
+  [0xC0000409] = { "STACK_BUFFER_OVERRUN", "stack buffer overrun" },
+}
+
+---Normalize `uv.spawn` signal (integer or `"SIGSEGV"`) to a `SIG*` name.
+---@param sig integer|string|nil
+---@return string|nil
+function M.signal_name(sig)
+  if sig == nil or sig == 0 or sig == "" then
+    return nil
+  end
+  if type(sig) == "string" then
+    local name = sig:upper()
+    if name:match("^SIG[%w]+$") then
+      return name
+    end
+    local n = tonumber(sig)
+    if n then
+      return M.signal_name(n)
+    end
+    return nil
+  end
+  if type(sig) ~= "number" or sig == 0 then
+    return nil
+  end
+  local uv = vim.uv or vim.loop
+  local constants = uv and uv.constants or {}
+  for k, v in pairs(constants) do
+    if type(k) == "string" and k:match("^SIG[%w]+$") and v == sig then
+      return k
+    end
+  end
+  return "signal " .. tostring(sig)
+end
+
+---@param stderr string|nil
+---@return string|nil
+---@return string|nil
+local function hint_from_stderr(stderr)
+  stderr = M.ensure_string(stderr)
+  if stderr == "" then
+    return nil
+  end
+
+  local asan = stderr:match("[Ee]RROR:%s+([%w+]+Sanitizer:[^\n]+)")
+  if asan then
+    local family = asan:match("^([%w+]+Sanitizer)")
+    local shorts = {
+      AddressSanitizer = "ASan",
+      UndefinedBehaviorSanitizer = "UBSan",
+      ThreadSanitizer = "TSan",
+      MemorySanitizer = "MSan",
+      LeakSanitizer = "LSan",
+    }
+    local detail = vim.trim(asan)
+    if #detail > 80 then
+      detail = detail:sub(1, 77) .. "..."
+    end
+    return (family and shorts[family]) or "ASan", detail
+  end
+
+  local ubsan = stderr:match("runtime error:%s*([^\n]+)")
+  if ubsan then
+    return "UBSan", "runtime error: " .. vim.trim(ubsan)
+  end
+
+  local assert_msg = stderr:match("Assertion failed:[^\n]*") or stderr:match("[Aa]ssertion failed[^\n]*")
+  if assert_msg then
+    return "assert", vim.trim(assert_msg)
+  end
+
+  local last_short, last_detail
+  for line in stderr:gmatch("[^\n]+") do
+    local name, rest = line:match("^([%w_%.]+Error):%s*(.*)$")
+    if not name then
+      name, rest = line:match("^([%w_%.]+Exception):%s*(.*)$")
+    end
+    if name then
+      last_short = name:match("([%w_]+)$") or name
+      last_detail = rest ~= "" and (name .. ": " .. rest) or name
+    end
+  end
+  if last_short then
+    return last_short, last_detail
+  end
+
+  return nil
+end
+
+---Short token and detail sentence for a runtime error.
+---@param code integer|nil
+---@param signal integer|string|nil
+---@param stderr string|nil
+---@return string reason
+---@return string reason_detail
+function M.re_cause(code, signal, stderr)
+  local sig_name = M.signal_name(signal)
+  if sig_name then
+    local desc = SIGNAL_DETAIL[sig_name]
+    if desc then
+      return sig_name, desc .. " (" .. sig_name .. ")"
+    end
+    return sig_name, "terminated by " .. sig_name
+  end
+
+  local hint, hint_detail = hint_from_stderr(stderr)
+  if hint then
+    return hint, hint_detail or hint
+  end
+
+  if type(code) == "number" then
+    local u32 = math.floor(code)
+    if u32 < 0 then
+      u32 = u32 + 4294967296
+    end
+    local mapped = NTSTATUS[u32]
+    if mapped then
+      return mapped[1], mapped[2] .. string.format(" (0x%X)", u32)
+    end
+  end
+
+  local err = M.ensure_string(stderr)
+  if code == -1 and err ~= "" then
+    local first = err:match("[^\n]+") or err
+    local short = "RE"
+    if first:find("failed to spawn", 1, true) then
+      short = "spawn"
+    elseif first:find("unsupported", 1, true) or first:find("not configured", 1, true) then
+      short = "config"
+    end
+    return short, first
+  end
+
+  if type(code) == "number" and code ~= 0 then
+    return "exit " .. tostring(code), "exited with code " .. tostring(code)
+  end
+
+  if err ~= "" then
+    return "RE", err:match("[^\n]+") or err
+  end
+
+  return "RE", "runtime error"
+end
+
+---@param result pretest.CaseResult
+---@return pretest.CaseResult
+function M.attach_re_cause(result)
+  if result.verdict == "RE" then
+    result.reason, result.reason_detail = M.re_cause(result.code, result.signal, result.stderr)
+  end
+  return result
+end
+
 ---@param bufnr integer|nil
 ---@return string|nil, string|nil # path, filetype
 function M.source_from_buf(bufnr)
