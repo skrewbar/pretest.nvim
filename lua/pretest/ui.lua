@@ -19,6 +19,7 @@ local M = {}
 ---@field main_win integer|nil
 ---@field applying boolean
 ---@field compile_stderr string
+---@field compile_status "stopped"|nil
 
 ---@type pretest.Session|nil
 local session = nil
@@ -429,6 +430,22 @@ local function header_content_min(n)
 end
 
 local CASES_LABEL = "Testcases "
+local COMPILING_LABEL = "Compiling"
+local COMPILE_STOPPED_LABEL = "Stopped"
+
+---@return "compiling"|"stopped"|nil
+local function compile_phase()
+  if not session then
+    return nil
+  end
+  if runner.is_compiling(session.src_path) then
+    return "compiling"
+  end
+  if session.compile_status == "stopped" then
+    return "stopped"
+  end
+  return nil
+end
 
 ---@return integer ac
 ---@return integer total
@@ -465,10 +482,26 @@ local function ac_summary()
   return ac, total, hl
 end
 
+---@return string|nil
+local function compile_phase_suffix()
+  local phase = compile_phase()
+  if phase == "compiling" then
+    return COMPILING_LABEL
+  elseif phase == "stopped" then
+    return COMPILE_STOPPED_LABEL
+  end
+  return nil
+end
+
 ---@return string
 local function format_cases_label()
   local ac, total = ac_summary()
-  return CASES_LABEL .. string.format("%d/%d", ac, total)
+  local line = CASES_LABEL .. string.format("%d/%d", ac, total)
+  local suffix = compile_phase_suffix()
+  if suffix then
+    line = line .. "  " .. suffix
+  end
+  return line
 end
 
 ---@param verdict string|nil
@@ -557,11 +590,24 @@ local function apply_header_marks(buf, layout, idx, hint_marks)
 
   local label_line = vim.api.nvim_buf_get_lines(buf, layout.cases_label_row, layout.cases_label_row + 1, false)[1] or ""
   if #label_line > #CASES_LABEL then
-    local _, _, summary_hl = ac_summary()
-    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, #CASES_LABEL, {
-      end_col = #label_line,
-      hl_group = summary_hl,
-    })
+    local suffix = compile_phase_suffix()
+    local count_end = #label_line
+    if suffix then
+      local suffix_col = #label_line - #suffix
+      count_end = suffix_col - 2 -- two spaces before the suffix
+      local suffix_hl = suffix == COMPILING_LABEL and "PretestRunning" or "PretestStopped"
+      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, suffix_col, {
+        end_col = #label_line,
+        hl_group = suffix_hl,
+      })
+    end
+    if count_end > #CASES_LABEL then
+      local _, _, summary_hl = ac_summary()
+      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, #CASES_LABEL, {
+        end_col = count_end,
+        hl_group = summary_hl,
+      })
+    end
   end
 
   local n = layout.n
@@ -1351,7 +1397,7 @@ local function open_layout(mode)
 end
 
 ---@param src_path string
----@return { results: table<integer, pretest.CaseResult>, index: integer, compile_stderr: string }, boolean
+---@return { results: table<integer, pretest.CaseResult>, index: integer, compile_stderr: string, compile_status?: "stopped"|nil }, boolean
 local function state_for(src_path)
   if session and session.src_path == src_path then
     return session, true
@@ -1391,6 +1437,7 @@ local function switch_source(src_bufnr, abs, ft)
   if saved then
     session.results = saved.results
     session.compile_stderr = saved.compile_stderr
+    session.compile_status = nil
     local n = #problem.tests
     if n == 0 then
       session.index = 0
@@ -1401,6 +1448,7 @@ local function switch_source(src_bufnr, abs, ft)
   else
     session.results = {}
     session.compile_stderr = ""
+    session.compile_status = nil
     if #problem.tests == 0 then
       session.index = 0
     else
@@ -1510,6 +1558,7 @@ function M.ensure_session(src_bufnr)
     main_win = nil,
     applying = false,
     compile_stderr = "",
+    compile_status = nil,
   }
   if #problem.tests == 0 then
     session.index = 0
@@ -1533,6 +1582,7 @@ function M.show()
     end
     return
   end
+  session.compile_status = nil
   open_layout(session.ui_mode)
   setup_buf_autocmds()
   render()
@@ -1766,6 +1816,7 @@ function M.run(indices, do_compile)
   end
 
   session.compile_stderr = ""
+  session.compile_status = nil
   local targets = indices
   if not targets or #targets == 0 then
     targets = {}
@@ -1785,16 +1836,19 @@ function M.run(indices, do_compile)
   local run_src = session.src_path
   runner.run_tests(session.src_path, session.filetype, session.problem, targets, do_compile, {
     on_compile_start = function()
-      local st = state_for(run_src)
+      local st, live = state_for(run_src)
       st.compile_stderr = ""
+      if live then
+        render()
+      end
     end,
     on_compile_done = function(ok, stderr)
       local st, live = state_for(run_src)
       if not ok then
         st.compile_stderr = stderr
-        if live then
-          render()
-        end
+      end
+      if live then
+        render()
       end
     end,
     on_case_start = function(i)
@@ -1830,13 +1884,18 @@ function M.stop()
     util.notify("no session", vim.log.levels.WARN)
     return
   end
+  local was_compiling = runner.is_compiling(s.src_path)
   if not runner.stop(s.src_path) then
     util.notify("not running")
     return
   end
-  for _, r in pairs(s.results) do
-    if r.verdict == "Running" then
-      r.verdict = "Stopped"
+  if was_compiling then
+    s.compile_status = "stopped"
+  else
+    for _, r in pairs(s.results) do
+      if r.verdict == "Running" then
+        r.verdict = "Stopped"
+      end
     end
   end
   if M.is_open() then
@@ -1896,6 +1955,7 @@ function M.apply_problem(src_path, problem)
     s.prob_path = ppath or s.prob_path
     s.results = {}
     s.compile_stderr = ""
+    s.compile_status = nil
     if #problem.tests == 0 then
       s.index = 0
     else

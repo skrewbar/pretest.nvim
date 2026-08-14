@@ -12,6 +12,7 @@ local M = {}
 
 ---@class pretest.ActiveRun
 ---@field cancelled boolean
+---@field compiling boolean
 ---@field compile_obj vim.SystemObj|nil
 ---@field kill_current fun()|nil
 
@@ -134,6 +135,17 @@ function M.is_running(src_path)
     end
   end
   return false
+end
+
+---True while an async compile process is in flight for `src_path`.
+---@param src_path string|nil
+---@return boolean
+function M.is_compiling(src_path)
+  if not src_path then
+    return false
+  end
+  local job = active[util.abspath(src_path)]
+  return job ~= nil and not job.cancelled and job.compiling == true
 end
 
 ---@param src_path string
@@ -418,7 +430,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
   M.stop(src_path)
 
   ---@type pretest.ActiveRun
-  local job = { cancelled = false }
+  local job = { cancelled = false, compiling = false }
   active[src_path] = job
 
   local list = indices
@@ -492,11 +504,9 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
     return
   end
 
-  if hooks.on_compile_start then
-    hooks.on_compile_start()
-  end
   job.compile_obj = M.compile(src_path, ft, function(ok, stderr)
     job.compile_obj = nil
+    job.compiling = false
     if job.cancelled or not is_current() then
       finish_all()
       return
@@ -522,6 +532,14 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
     end
     run_queue(1)
   end)
+
+  -- Only async compiles expose a SystemObj; sync no-op/failure already finished above.
+  if job.compile_obj then
+    job.compiling = true
+    if hooks.on_compile_start then
+      hooks.on_compile_start()
+    end
+  end
 end
 
 return M
