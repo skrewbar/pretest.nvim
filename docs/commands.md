@@ -44,7 +44,7 @@ Neovim `:saveas` and an external `mv` do not reconnect `.prob` or the compile bi
 
 ## UI keys
 
-These apply in pretest UI buffers. `<C-n>` / `<C-p>` and `<Tab>` / `<S-Tab>` also work in Insert mode.
+These are the defaults in pretest UI buffers. Override with [`ui_keys`](configuration.md#ui-keys). `<C-n>` / `<C-p>` and `<Tab>` / `<S-Tab>` also work in Insert mode.
 
 | Key | Action |
 |-----|--------|

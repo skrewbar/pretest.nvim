@@ -251,38 +251,73 @@ end
 
 -- Hint rows: { text, is_key } segments so shortcuts can be colored.
 -- Wrap happens per hint unit (keys joined by `/` plus the following label).
-local HINT_SEGMENTS = {
-  {
-    { "<C-n>", true },
-    { "/", false },
-    { "<C-p>", true },
-    { " switch  ", false },
-    { ":w", true },
-    { " save  ", false },
-    { "q", true },
-    { " close  ", false },
-    { "s", true },
-    { " stop", false },
-  },
-  {
-    { "R", true },
-    { " run-all  ", false },
-    { "r", true },
-    { " run-one  ", false },
-    { "<C-S-r>", true },
-    { " no-compile-all  ", false },
-    { "<C-r>", true },
-    { " no-compile-one", false },
-  },
-  {
-    { "<Tab>", true },
-    { "/", false },
-    { "<S-Tab>", true },
-    { " sections", false },
-  },
-}
-
 ---@alias pretest.HintSeg { [1]: string, [2]: boolean }
+
+---@param actions string[]
+---@param label string
+---@return pretest.HintSeg[]|nil
+local function hint_unit(actions, label)
+  local keys = {}
+  for _, action in ipairs(actions) do
+    for _, bind in ipairs(config.ui_key_list(action)) do
+      keys[#keys + 1] = bind.lhs
+    end
+  end
+  if #keys == 0 then
+    return nil
+  end
+  local segs = {}
+  for i, lhs in ipairs(keys) do
+    if i > 1 then
+      segs[#segs + 1] = { "/", false }
+    end
+    segs[#segs + 1] = { lhs, true }
+  end
+  segs[#segs + 1] = { label, false }
+  return segs
+end
+
+---@param units (pretest.HintSeg[]|nil)[]
+---@return pretest.HintSeg[]
+local function hint_row(units)
+  local segs = {}
+  for _, unit in ipairs(units) do
+    if unit then
+      for _, seg in ipairs(unit) do
+        segs[#segs + 1] = seg
+      end
+    end
+  end
+  return segs
+end
+
+---@return pretest.HintSeg[][]
+local function hint_segments()
+  local rows = {
+    hint_row({
+      hint_unit({ "next_case", "prev_case" }, " switch  "),
+      { { ":w", true }, { " save  ", false } },
+      hint_unit({ "close" }, " close  "),
+      hint_unit({ "stop" }, " stop"),
+    }),
+    hint_row({
+      hint_unit({ "run_all" }, " run-all  "),
+      hint_unit({ "run_one" }, " run-one  "),
+      hint_unit({ "run_all_no_compile" }, " no-compile-all  "),
+      hint_unit({ "run_one_no_compile" }, " no-compile-one"),
+    }),
+    hint_row({
+      hint_unit({ "next_section", "prev_section" }, " sections"),
+    }),
+  }
+  local out = {}
+  for _, row in ipairs(rows) do
+    if #row > 0 then
+      out[#out + 1] = row
+    end
+  end
+  return out
+end
 
 ---Group segments into unsplittable hints: keys joined by `/`, plus the label.
 ---@param segs pretest.HintSeg[]
@@ -319,7 +354,7 @@ local function build_hint_lines(width)
   width = (width and width > 0) and width or math.huge
   local lines = {}
   local marks = {}
-  for _, segs in ipairs(HINT_SEGMENTS) do
+  for _, segs in ipairs(hint_segments()) do
     local row = #lines
     local col = 0
     local parts = {}
@@ -397,7 +432,7 @@ end
 local function header_layout(n, hint_n)
   local show_hints = get_show_hints()
   if hint_n == nil then
-    hint_n = show_hints and #HINT_SEGMENTS or 0
+    hint_n = show_hints and #hint_segments() or 0
   end
   local name_row = 0
   local limits_row = 1
@@ -1252,39 +1287,46 @@ local function render()
   session.applying = false
 end
 
+local UI_KEY_ACTIONS = {
+  next_case = function()
+    M.next_case()
+  end,
+  prev_case = function()
+    M.prev_case()
+  end,
+  close = function()
+    M.close()
+  end,
+  stop = function()
+    M.stop()
+  end,
+  run_all = function()
+    require("pretest.commands").run(nil, true)
+  end,
+  run_one = function()
+    require("pretest.commands").run({ session and session.index }, true)
+  end,
+  run_all_no_compile = function()
+    require("pretest.commands").run(nil, false)
+  end,
+  run_one_no_compile = function()
+    require("pretest.commands").run({ session and session.index }, false)
+  end,
+  next_section = function()
+    focus_section(1)
+  end,
+  prev_section = function()
+    focus_section(-1)
+  end,
+}
+
 local function map_ui_keys(buf)
   local opts = { buffer = buf, silent = true, nowait = true }
-  vim.keymap.set({ "n", "i" }, "<C-n>", function()
-    M.next_case()
-  end, opts)
-  vim.keymap.set({ "n", "i" }, "<C-p>", function()
-    M.prev_case()
-  end, opts)
-  vim.keymap.set("n", "q", function()
-    M.close()
-  end, opts)
-  vim.keymap.set("n", "s", function()
-    M.stop()
-  end, opts)
-  vim.keymap.set("n", "R", function()
-    require("pretest.commands").run(nil, true)
-  end, opts)
-  vim.keymap.set("n", "r", function()
-    require("pretest.commands").run({ session and session.index }, true)
-  end, opts)
-  -- <C-R>/<C-r> are identical in terminals; use Ctrl-Shift-r for "all".
-  vim.keymap.set("n", "<C-S-r>", function()
-    require("pretest.commands").run(nil, false)
-  end, opts)
-  vim.keymap.set("n", "<C-r>", function()
-    require("pretest.commands").run({ session and session.index }, false)
-  end, opts)
-  vim.keymap.set({ "n", "i" }, "<Tab>", function()
-    focus_section(1)
-  end, opts)
-  vim.keymap.set({ "n", "i" }, "<S-Tab>", function()
-    focus_section(-1)
-  end, opts)
+  for name, fn in pairs(UI_KEY_ACTIONS) do
+    for _, bind in ipairs(config.ui_key_list(name)) do
+      vim.keymap.set(bind.modes, bind.lhs, fn, opts)
+    end
+  end
 end
 
 local function setup_buf_autocmds()

@@ -23,6 +23,7 @@ require("pretest").setup({
   show_header_hints = true, -- starting value for :Pretest toggle_hints
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 }, -- relative heights
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  -- ui_keys = { ... }, -- see "UI keys" below
   languages = {
     cpp = {
       extensions = { "cpp", "cc", "cxx", "c" },
@@ -54,6 +55,37 @@ require("pretest").setup({
 ## UI size
 
 UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `max_*`) are numbers. Values in `(0, 1]` are fractions of editor columns (width) or lines (height); values `> 1` are cells. Min/max clamp after the base size is resolved. Omit a min/max key (or leave it `nil`) to skip that bound.
+
+## UI keys
+
+UI-buffer maps (not the `<leader>t` suggested keys). Each action is a string, a list, `{ "<Tab>", modes = "n" }`, or `false` to unbind. Named actions replace the whole value; omitted actions keep the default.
+
+Defaults: `next_case` / `prev_case` / `next_section` / `prev_section` use Normal and Insert; the rest are Normal only. Set `modes` on a binding to override, e.g. `{ "<Tab>", modes = "n" }` if Insert should type a tab.
+
+```lua
+ui_keys = {
+  next_case = "<C-n>",
+  prev_case = "<C-p>",
+  next_section = "<Tab>",
+  prev_section = "<S-Tab>",
+  close = "q",
+  stop = "s",
+  run_all = "R",
+  run_one = "r",
+  run_all_no_compile = "<C-S-r>", -- terminals often cannot tell <C-R> from <C-r>
+  run_one_no_compile = "<C-r>",
+}
+```
+
+```lua
+ui_keys = {
+  next_section = "<C-j>", -- replaces Tab; Insert+Normal
+  close = { "q", "<Esc>" },
+  run_all_no_compile = false,
+}
+```
+
+`:w` still saves Input/Expected and is not in `ui_keys`. Header hints follow the configured keys.
 
 ## Languages
 
