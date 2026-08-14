@@ -909,6 +909,12 @@ local function focus_section(delta)
   local target = wins[next_idx]
   pcall(vim.api.nvim_set_current_win, target)
   sync_header_cursor(target)
+  if vim.fn.mode():find("i", 1, true) and valid_win(target) then
+    local buf = vim.api.nvim_win_get_buf(target)
+    if not vim.bo[buf].modifiable then
+      vim.cmd("stopinsert")
+    end
+  end
 end
 
 ---@return integer
@@ -1248,10 +1254,10 @@ end
 
 local function map_ui_keys(buf)
   local opts = { buffer = buf, silent = true, nowait = true }
-  vim.keymap.set("n", "<C-n>", function()
+  vim.keymap.set({ "n", "i" }, "<C-n>", function()
     M.next_case()
   end, opts)
-  vim.keymap.set("n", "<C-p>", function()
+  vim.keymap.set({ "n", "i" }, "<C-p>", function()
     M.prev_case()
   end, opts)
   vim.keymap.set("n", "q", function()
@@ -1273,10 +1279,10 @@ local function map_ui_keys(buf)
   vim.keymap.set("n", "<C-r>", function()
     require("pretest.commands").run({ session and session.index }, false)
   end, opts)
-  vim.keymap.set("n", "<Tab>", function()
+  vim.keymap.set({ "n", "i" }, "<Tab>", function()
     focus_section(1)
   end, opts)
-  vim.keymap.set("n", "<S-Tab>", function()
+  vim.keymap.set({ "n", "i" }, "<S-Tab>", function()
     focus_section(-1)
   end, opts)
 end
