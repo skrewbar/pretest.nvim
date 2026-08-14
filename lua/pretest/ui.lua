@@ -1177,7 +1177,6 @@ local function setup_buf_autocmds()
       callback = function()
         M.flush_edits()
         vim.bo[buf].modified = false
-        util.notify("saved")
       end,
     })
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
@@ -1689,7 +1688,6 @@ function M.edit_limits()
       if M.is_open() then
         render()
       end
-      util.notify(string.format("limits: %dms / %dMB", time_n, mem_n))
     end)
   end)
 end
@@ -1715,7 +1713,6 @@ function M.edit_name()
     if M.is_open() then
       render()
     end
-    util.notify("name: " .. name)
   end)
 end
 
@@ -1795,7 +1792,6 @@ function M.run(indices, do_compile)
       local st, live = state_for(run_src)
       if not ok then
         st.compile_stderr = stderr
-        util.notify("compile failed", vim.log.levels.ERROR)
         if live then
           render()
         end
@@ -1819,22 +1815,11 @@ function M.run(indices, do_compile)
         render()
       end
     end,
-    on_all_done = function(cancelled)
-      local st, live = state_for(run_src)
+    on_all_done = function()
+      local _, live = state_for(run_src)
       if live then
         render()
       end
-      if cancelled then
-        return
-      end
-      local ac, total = 0, #targets
-      for _, i in ipairs(targets) do
-        local r = st.results[i]
-        if r and r.verdict == "AC" then
-          ac = ac + 1
-        end
-      end
-      util.notify(string.format("done: %d/%d AC", ac, total))
     end,
   })
 end
@@ -1857,7 +1842,6 @@ function M.stop()
   if M.is_open() then
     render()
   end
-  util.notify("stopped")
 end
 
 function M.refresh()
