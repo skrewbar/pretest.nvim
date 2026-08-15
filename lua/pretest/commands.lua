@@ -47,12 +47,6 @@ local function parse_indices(indices)
   return out
 end
 
----@param indices integer[]|nil
----@param do_compile boolean
-function M.run(indices, do_compile)
-  ui.run(indices, do_compile)
-end
-
 ---@param args string
 function M.command(args)
   local parts = vim.split(args or "", " ", { plain = true, trimempty = true })
@@ -70,7 +64,7 @@ function M.command(args)
     ui.toggle_hints()
   elseif sub == "run" then
     local rest = vim.list_slice(parts, 2)
-    M.run(parse_indices(rest), true)
+    ui.run(parse_indices(rest), true)
   elseif sub == "run_current" then
     local s = ui.get_session() or ui.ensure_session()
     if not s then
@@ -81,10 +75,10 @@ function M.command(args)
       util.notify("no current testcase", vim.log.levels.WARN)
       return
     end
-    M.run({ idx }, true)
+    ui.run({ idx }, true)
   elseif sub == "run_no_compile" then
     local rest = vim.list_slice(parts, 2)
-    M.run(parse_indices(rest), false)
+    ui.run(parse_indices(rest), false)
   elseif sub == "stop" then
     ui.stop()
   elseif sub == "add" then

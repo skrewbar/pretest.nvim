@@ -1304,16 +1304,16 @@ local UI_KEY_ACTIONS = {
     M.stop()
   end,
   run_all = function()
-    require("pretest.commands").run(nil, true)
+    M.run(nil, true)
   end,
   run_one = function()
-    require("pretest.commands").run({ session and session.index }, true)
+    M.run({ session and session.index }, true)
   end,
   run_all_no_compile = function()
-    require("pretest.commands").run(nil, false)
+    M.run(nil, false)
   end,
   run_one_no_compile = function()
-    require("pretest.commands").run({ session and session.index }, false)
+    M.run({ session and session.index }, false)
   end,
   next_section = function()
     focus_section(1)
