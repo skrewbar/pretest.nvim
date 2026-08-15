@@ -19,7 +19,7 @@ require("pretest").setup({
   float_max_height = nil,
   save_dir = nil, -- nil → {src_dir}/.pretest
   default_time_limit = 3000, -- ms
-  default_memory_limit = 1024, -- MB
+  default_memory_limit = 1024, -- MB; peak RSS over this is MLE (0 disables)
   show_header_hints = true, -- starting value for :Pretest toggle_hints
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 }, -- relative heights
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
@@ -90,6 +90,16 @@ ui_keys = {
 ## Languages
 
 `$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
+
+Memory limit is judged from **peak RSS** after the case ends. The process is not killed early for memory; TLE still applies. Interpreter overhead (Python) counts toward RSS. Set the limit to `0` to disable.
+
+Peak RSS is read from OS builtins (no extra packages, compiler, or `gtime`):
+
+- **Linux:** GNU `/usr/bin/time -f %M -o <file>` (KiB). If that binary is missing or not GNU, `/proc/<pid>/status` `VmHWM` while the process is alive.
+- **macOS:** `/usr/bin/time -l`; `maximum resident set size` (bytes → KiB). BSD rusage is stripped from stderr.
+- **Windows:** `PeakWorkingSet64` via PowerShell before the libuv process handle is closed. If `Get-Process` only lists running processes, pretest attaches while the process is alive and reads the same counter after exit.
+
+Header example: `MLE  21MB`.
 
 On RE, a **Runtime Error** section shows the signal, exit code, or exception (e.g. `SIGSEGV`). Process stderr is unchanged in **Stderr**. To get sanitizer traces, add flags yourself:
 

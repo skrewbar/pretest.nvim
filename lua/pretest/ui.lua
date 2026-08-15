@@ -226,6 +226,7 @@ local function apply_highlights()
     PretestWA = "DiagnosticError",
     PretestRE = "DiagnosticError",
     PretestTLE = "DiagnosticWarn",
+    PretestMLE = "DiagnosticWarn",
     PretestCE = "DiagnosticError",
     PretestStopped = "DiagnosticWarn",
     PretestRunning = "DiagnosticInfo",
@@ -553,6 +554,8 @@ local function verdict_hl(verdict)
     return "PretestRE"
   elseif verdict == "TLE" then
     return "PretestTLE"
+  elseif verdict == "MLE" then
+    return "PretestMLE"
   elseif verdict == "CE" then
     return "PretestCE"
   elseif verdict == "Stopped" then
@@ -595,7 +598,7 @@ local function format_case_line(i, n, idx, result)
   local verdict_s = string.format("%-" .. VERDICT_WIDTH .. "s", verdict)
   local time_label = result.time_ms and string.format("%.0fms", result.time_ms) or ""
   local reason_s = ""
-  if verdict == "RE" and result.reason and result.reason ~= "" then
+  if (verdict == "RE" or verdict == "MLE") and result.reason and result.reason ~= "" then
     reason_s = "  " .. result.reason
   end
   local time_s = ""

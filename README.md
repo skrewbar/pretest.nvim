@@ -9,7 +9,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Language runners via `languages` (C++ and Python by default)
 - Sidebar or floating UI (toggle at runtime)
 - Edit **Input** / **Expected** in the UI; edit name and limits via commands
-- Verdicts: AC, WA, RE, TLE, CE, Stopped
+- Verdicts: AC, WA, RE, TLE, MLE, CE, Stopped
 - Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
 
 ## Install (lazy.nvim)

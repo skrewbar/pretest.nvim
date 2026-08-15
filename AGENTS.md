@@ -15,7 +15,7 @@ Neovim plugin for local competitive-programming pretest judging: load/save `.pro
 | `lua/pretest/commands.lua` | `:Pretest` subcommand dispatch + completion |
 | `lua/pretest/prob.lua` | `.prob` path, load/save, TC CRUD, Companion JSON mapping |
 | `lua/pretest/companion.lua` | Competitive Companion HTTP receive |
-| `lua/pretest/runner.lua` | compile, run, timeout, verdicts |
+| `lua/pretest/runner.lua` | compile, run, timeout, memory, verdicts |
 | `lua/pretest/ui.lua` | sidebar/float, navigation, editable Input/Expected |
 | `lua/pretest/util.lua` | paths, md5, text normalize, filetype, notify |
 
