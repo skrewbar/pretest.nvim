@@ -181,7 +181,8 @@ local function write_source_and_prob(filepath, task)
 end
 
 ---@param bufnr integer
----@return string|nil, string|nil
+---@return string|nil path
+---@return string|nil filetype # nil only when path is nil; otherwise string (possibly "")
 local function source_from_bufnr(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return nil, nil
@@ -199,7 +200,7 @@ local function store_testcases(bufnr, task)
     return false
   end
   if not util.supported_filetype(ft) then
-    util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
+    util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
     return false
   end
 
@@ -537,7 +538,7 @@ function M.start(mode)
       return false
     end
     if not util.supported_filetype(ft) then
-      util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
+      util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
       return false
     end
   end

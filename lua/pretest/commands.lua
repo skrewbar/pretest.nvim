@@ -49,7 +49,7 @@ end
 
 ---@param args string
 function M.command(args)
-  local parts = vim.split(args or "", " ", { plain = true, trimempty = true })
+  local parts = vim.split(args, " ", { plain = true, trimempty = true })
   local sub = parts[1]
   if not sub then
     util.notify("usage: Pretest <subcommand>", vim.log.levels.WARN)

@@ -728,9 +728,6 @@ function M.flush_edits()
     return
   end
   local tc = session.problem.tests[session.index]
-  if not tc then
-    return
-  end
   if valid_buf(session.bufs.input) then
     local lines = vim.api.nvim_buf_get_lines(session.bufs.input, 0, -1, false)
     tc.input = util.join_lines(lines)
@@ -1639,12 +1636,13 @@ function M.ensure_session(src_bufnr)
   end
 
   local path, ft = util.source_from_buf(src_bufnr)
-  if not path then
+  if not path or not ft then
     util.notify("no file in current buffer", vim.log.levels.ERROR)
     return nil
   end
+
   if not util.supported_filetype(ft) then
-    util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
+    util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
     return nil
   end
 
@@ -1704,20 +1702,20 @@ function M.show()
     return
   end
   if M.is_open() then
-    for _, win in ipairs(session.winids) do
-      if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
+    for _, win in ipairs(s.winids) do
+      if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
         vim.api.nvim_set_current_win(win)
         return
       end
     end
     return
   end
-  session.compile_status = nil
-  open_layout(session.ui_mode)
+  s.compile_status = nil
+  open_layout(s.ui_mode)
   setup_buf_autocmds()
   render()
-  for _, win in ipairs(session.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
+  for _, win in ipairs(s.winids) do
+    if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
       break
     end
@@ -1738,16 +1736,16 @@ function M.toggle_layout()
     return
   end
   M.flush_edits()
-  local next_mode = session.ui_mode == "sidebar" and "float" or "sidebar"
+  local next_mode = s.ui_mode == "sidebar" and "float" or "sidebar"
   set_preferred_ui(next_mode)
   if M.is_open() then
     M.close()
-    session.ui_mode = next_mode
+    s.ui_mode = next_mode
     open_layout(next_mode)
     setup_buf_autocmds()
     render()
   else
-    session.ui_mode = next_mode
+    s.ui_mode = next_mode
     util.notify("UI mode: " .. next_mode)
   end
 end
@@ -1791,20 +1789,20 @@ function M.goto_case(index)
   if not M.is_open() then
     M.show()
   end
-  if #session.problem.tests == 0 then
+  if #s.problem.tests == 0 then
     util.notify("no testcases", vim.log.levels.WARN)
     return
   end
-  index = index or session.index
-  if index < 1 or index > #session.problem.tests then
+  index = index or s.index
+  if index < 1 or index > #s.problem.tests then
     util.notify("invalid testcase index", vim.log.levels.ERROR)
     return
   end
   M.flush_edits()
-  session.index = index
+  s.index = index
   render()
-  for _, win in ipairs(session.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
+  for _, win in ipairs(s.winids) do
+    if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
       break
     end
@@ -1817,10 +1815,10 @@ function M.add_testcase()
     return
   end
   M.flush_edits()
-  prob.add_testcase(session.problem)
-  session.index = #session.problem.tests
-  session.results[session.index] = nil
-  prob.save(session.problem, session.prob_path)
+  prob.add_testcase(s.problem)
+  s.index = #s.problem.tests
+  s.results[s.index] = nil
+  prob.save(s.problem, s.prob_path)
   if not M.is_open() then
     M.show()
   else
@@ -1834,8 +1832,8 @@ function M.edit_limits()
     return
   end
   local cfg = config.options
-  local cur_tl = session.problem.timeLimit or cfg.default_time_limit
-  local cur_ml = session.problem.memoryLimit or cfg.default_memory_limit
+  local cur_tl = s.problem.timeLimit or cfg.default_time_limit
+  local cur_ml = s.problem.memoryLimit or cfg.default_memory_limit
 
   local function parse_positive_int(val, label)
     local n = tonumber(val)
@@ -1862,9 +1860,9 @@ function M.edit_limits()
       if not mem_n then
         return
       end
-      session.problem.timeLimit = time_n
-      session.problem.memoryLimit = mem_n
-      prob.save(session.problem, session.prob_path)
+      s.problem.timeLimit = time_n
+      s.problem.memoryLimit = mem_n
+      prob.save(s.problem, s.prob_path)
       if M.is_open() then
         render()
       end
@@ -1877,7 +1875,7 @@ function M.edit_name()
   if not s then
     return
   end
-  local cur = session.problem.name or "Pretest"
+  local cur = s.problem.name or "Pretest"
 
   vim.ui.input({ prompt = "Problem name: ", default = cur }, function(name_s)
     if name_s == nil then
@@ -1888,8 +1886,8 @@ function M.edit_name()
       util.notify("invalid problem name", vim.log.levels.ERROR)
       return
     end
-    session.problem.name = name
-    prob.save(session.problem, session.prob_path)
+    s.problem.name = name
+    prob.save(s.problem, s.prob_path)
     if M.is_open() then
       render()
     end
@@ -1902,23 +1900,23 @@ function M.delete_testcase(index)
   if not s then
     return
   end
-  if #session.problem.tests == 0 then
+  if #s.problem.tests == 0 then
     util.notify("no testcases", vim.log.levels.WARN)
     return
   end
-  index = index or session.index
+  index = index or s.index
   M.flush_edits()
-  if not prob.delete_testcase(session.problem, index) then
+  if not prob.delete_testcase(s.problem, index) then
     util.notify("invalid testcase index", vim.log.levels.ERROR)
     return
   end
-  session.results = {}
-  if #session.problem.tests == 0 then
-    session.index = 0
+  s.results = {}
+  if #s.problem.tests == 0 then
+    s.index = 0
   else
-    session.index = math.min(index, #session.problem.tests)
+    s.index = math.min(index, #s.problem.tests)
   end
-  prob.save(session.problem, session.prob_path)
+  prob.save(s.problem, s.prob_path)
   if M.is_open() then
     render()
   end
@@ -1931,12 +1929,12 @@ function M.run(indices, do_compile)
   if not s then
     return
   end
-  if #session.problem.tests == 0 then
+  if #s.problem.tests == 0 then
     util.notify("no testcases — use :Pretest add", vim.log.levels.WARN)
     return
   end
-  if vim.api.nvim_buf_is_valid(session.src_bufnr) and vim.bo[session.src_bufnr].modified then
-    vim.api.nvim_buf_call(session.src_bufnr, function()
+  if vim.api.nvim_buf_is_valid(s.src_bufnr) and vim.bo[s.src_bufnr].modified then
+    vim.api.nvim_buf_call(s.src_bufnr, function()
       vim.cmd("write")
     end)
   end
@@ -1945,17 +1943,17 @@ function M.run(indices, do_compile)
     M.show()
   end
 
-  session.compile_stderr = ""
-  session.compile_status = nil
+  s.compile_stderr = ""
+  s.compile_status = nil
   local targets = indices
   if not targets or #targets == 0 then
     targets = {}
-    for i = 1, #session.problem.tests do
+    for i = 1, #s.problem.tests do
       targets[#targets + 1] = i
     end
   end
   for _, i in ipairs(targets) do
-    session.results[i] = {
+    s.results[i] = {
       verdict = "Pending",
       stdout = "",
       stderr = "",
@@ -1963,8 +1961,8 @@ function M.run(indices, do_compile)
   end
   render()
 
-  local run_src = session.src_path
-  runner.run_tests(session.src_path, session.filetype, session.problem, targets, do_compile, {
+  local run_src = s.src_path
+  runner.run_tests(s.src_path, s.filetype, s.problem, targets, do_compile, {
     on_compile_start = function()
       local st, live = state_for(run_src)
       st.compile_stderr = ""
@@ -2179,12 +2177,12 @@ function M.move_source(dest, opts)
     ft = session.filetype
   else
     old_src, ft = util.source_from_buf(bufnr)
-    if not old_src then
+    if not old_src or not ft then
       util.notify("no file in current buffer", vim.log.levels.ERROR)
       return
     end
     if not util.supported_filetype(ft) then
-      util.notify("unsupported filetype: " .. tostring(ft), vim.log.levels.ERROR)
+      util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
       return
     end
   end
@@ -2214,8 +2212,9 @@ function M.move_source(dest, opts)
     return
   end
 
-  local live = session and session.src_path == old_src
-  if live then
+  local live_session = nil
+  if session and session.src_path == old_src then
+    live_session = session
     M.flush_edits()
   end
 
@@ -2242,13 +2241,13 @@ function M.move_source(dest, opts)
     vim.fn.mkdir(parent, "p")
   end
 
-  if live then
-    session.applying = true
+  if live_session then
+    live_session.applying = true
   end
 
   local function finish_applying()
-    if session then
-      session.applying = false
+    if live_session then
+      live_session.applying = false
     end
   end
 
@@ -2264,30 +2263,33 @@ function M.move_source(dest, opts)
     wipe_leftover_buf(bufnr, old_name)
   end
 
-  local problem = live and session.problem or nil
+  local problem = nil
+  if live_session then
+    problem = live_session.problem
+  end
   local relocated, new_ppath, err = prob.relocate(old_src, new_src, problem)
   runner.relocate_bin(old_src, new_src, ft, new_ft)
 
-  if live then
+  if live_session then
     if parked[old_src] then
       parked[new_src] = parked[old_src]
       parked[old_src] = nil
     end
-    session.src_path = new_src
+    live_session.src_path = new_src
     if valid_buf(bufnr) then
-      session.src_bufnr = bufnr
+      live_session.src_bufnr = bufnr
     end
-    session.filetype = new_ft
-    session.prob_path = new_ppath
+    live_session.filetype = new_ft
+    live_session.prob_path = new_ppath
     if relocated then
-      session.problem = relocated
-    elseif session.problem then
-      session.problem.srcPath = new_src
+      live_session.problem = relocated
+    elseif live_session.problem then
+      live_session.problem.srcPath = new_src
     end
   end
 
   finish_applying()
-  if live and M.is_open() then
+  if live_session and M.is_open() then
     render()
   end
   if err then

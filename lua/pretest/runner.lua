@@ -374,10 +374,12 @@ end
 ---@param old_src string
 ---@param new_src string
 ---@param old_ft string
----@param new_ft string|nil
+---@param new_ft string|nil # empty or nil → use old_ft
 ---@return boolean
 function M.relocate_bin(old_src, new_src, old_ft, new_ft)
-  new_ft = new_ft or old_ft
+  if new_ft == nil or new_ft == "" then
+    new_ft = old_ft
+  end
   local old_bin = M.bin_path_for(old_src, old_ft)
   local new_bin = M.bin_path_for(new_src, new_ft)
   if old_bin == new_bin then
@@ -460,7 +462,7 @@ end
 function M.compile(src_path, ft, on_done)
   local lang = config.language(ft)
   if not lang then
-    on_done(false, "unsupported filetype: " .. ft)
+    on_done(false, "unsupported filetype: " .. util.filetype_label(ft))
     return nil
   end
   if not lang.compile then
@@ -474,7 +476,7 @@ function M.compile(src_path, ft, on_done)
   }
   local exec = eval_field(lang.compile.exec, ctx)
   if type(exec) ~= "string" then
-    on_done(false, "compile.exec not configured for filetype: " .. ft)
+    on_done(false, "compile.exec not configured for filetype: " .. util.filetype_label(ft))
     return nil
   end
   local raw_args = eval_field(lang.compile.args, ctx)
@@ -525,7 +527,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
     on_done(util.attach_re_cause({
       verdict = "RE",
       stdout = "",
-      stderr = "unsupported filetype: " .. tostring(ft),
+      stderr = "unsupported filetype: " .. util.filetype_label(ft),
       time_ms = 0,
       code = -1,
     }))
@@ -541,7 +543,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
     on_done(util.attach_re_cause({
       verdict = "RE",
       stdout = "",
-      stderr = "run.exec not configured for filetype: " .. tostring(ft),
+      stderr = "run.exec not configured for filetype: " .. util.filetype_label(ft),
       time_ms = 0,
       code = -1,
     }))

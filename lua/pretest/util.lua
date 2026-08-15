@@ -190,12 +190,23 @@ function M.supported_filetype(ft)
   return require("pretest.config").language(ft) ~= nil
 end
 
+---Human-readable filetype for error messages (`""` / nil → `"unknown"`).
+---@param ft string|nil
+---@return string
+function M.filetype_label(ft)
+  if type(ft) == "string" and ft ~= "" then
+    return ft
+  end
+  return "unknown"
+end
+
+---Detect filetype from path. Returns "" when nothing useful is found (never nil).
 ---@param path string
----@return string|nil
+---@return string
 function M.filetype_from_path(path)
   local languages = require("pretest.config").options.languages or {}
   local detected = vim.filetype.match({ filename = path })
-  if detected and languages[detected] then
+  if detected and detected ~= "" and languages[detected] then
     return detected
   end
 
@@ -219,7 +230,7 @@ function M.filetype_from_path(path)
   if detected and detected ~= "" then
     return detected
   end
-  return nil
+  return ""
 end
 
 local SIGNAL_DETAIL = {
@@ -391,7 +402,8 @@ function M.attach_re_cause(result)
 end
 
 ---@param bufnr integer|nil
----@return string|nil, string|nil # path, filetype
+---@return string|nil path
+---@return string|nil filetype # nil only when path is nil; otherwise string (possibly "")
 function M.source_from_buf(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local name = vim.api.nvim_buf_get_name(bufnr)
@@ -400,11 +412,11 @@ function M.source_from_buf(bufnr)
   end
   local path = M.abspath(name)
   local ft = vim.bo[bufnr].filetype
-  if ft == "" then
-    ft = nil
-  end
   if not M.supported_filetype(ft) then
-    ft = M.filetype_from_path(path) or ft
+    local detected = M.filetype_from_path(path)
+    if detected ~= "" then
+      ft = detected
+    end
   end
   return path, ft
 end

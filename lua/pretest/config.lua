@@ -289,7 +289,7 @@ end
 ---@param ft string|nil
 ---@return pretest.LangConfig|nil
 function M.language(ft)
-  if type(ft) ~= "string" then
+  if type(ft) ~= "string" or ft == "" then
     return nil
   end
   return M.options.languages[ft]
