@@ -9,7 +9,7 @@ function M.setup(opts)
   config.setup(opts)
   commands.setup()
   ui.setup()
-  if config.get().companion.listen_on_setup then
+  if config.options.companion.listen_on_setup then
     require("pretest.companion").start("persistently")
   end
 end

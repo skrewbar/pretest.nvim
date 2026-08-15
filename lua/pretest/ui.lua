@@ -53,7 +53,7 @@ local function get_preferred_ui()
   if preferred_ui == "sidebar" or preferred_ui == "float" then
     return preferred_ui
   end
-  local ui = config.get().ui
+  local ui = config.options.ui
   if ui == "float" then
     return "float"
   end
@@ -70,7 +70,7 @@ local function get_show_hints()
   if preferred_show_hints ~= nil then
     return preferred_show_hints
   end
-  return config.get().show_header_hints ~= false
+  return config.options.show_header_hints ~= false
 end
 
 ---@param show boolean
@@ -88,7 +88,7 @@ end
 
 ---@return integer
 local function resolved_sidebar_width()
-  local cfg = config.get()
+  local cfg = config.options
   return util.resolve_size(
     cfg.sidebar_width,
     cfg.sidebar_min_width,
@@ -100,7 +100,7 @@ end
 
 ---@return integer
 local function resolved_float_width()
-  local cfg = config.get()
+  local cfg = config.options
   return util.resolve_size(
     cfg.float_width,
     cfg.float_min_width,
@@ -112,7 +112,7 @@ end
 
 ---@return integer
 local function resolved_float_height()
-  local cfg = config.get()
+  local cfg = config.options
   return util.resolve_size(
     cfg.float_height,
     cfg.float_min_height,
@@ -808,7 +808,7 @@ end
 ---@param stderr_h integer|nil
 ---@return table<string, integer>
 local function compute_float_heights(show_re, re_h, show_stderr, stderr_h)
-  local cfg = config.get()
+  local cfg = config.options
   local extra_n = (show_re and 1 or 0) + (show_stderr and 1 or 0)
   local n_sections = 4 + extra_n
   local border = 2
@@ -854,12 +854,12 @@ local function apply_sidebar_section_heights(extra_h)
   end
   local remaining = math.max(12, total - extra_h)
   local header_h, input_h, expected_h, output_h =
-    section_heights_from_weights(remaining, config.get().sidebar_sections)
+    section_heights_from_weights(remaining, config.options.sidebar_sections)
   local hmin = header_content_min(#session.problem.tests)
   if header_h < hmin and remaining >= hmin + 9 then
     header_h = hmin
     local body_budget = remaining - header_h
-    local sec = config.get().sidebar_sections or {}
+    local sec = config.options.sidebar_sections or {}
     local wi = math.max(0.0001, tonumber(sec.input) or 1)
     local we = math.max(0.0001, tonumber(sec.expected) or 1)
     local wo = math.max(0.0001, tonumber(sec.output) or 1)
@@ -988,8 +988,8 @@ local function write_header()
     hint_lines, hint_marks = build_hint_lines(width)
   end
   local layout = header_layout(n, #hint_lines)
-  local tl = session.problem.timeLimit or config.get().default_time_limit
-  local ml = session.problem.memoryLimit or config.get().default_memory_limit
+  local tl = session.problem.timeLimit or config.options.default_time_limit
+  local ml = session.problem.memoryLimit or config.options.default_memory_limit
 
   local header = {
     string.format("%s", session.problem.name or "Pretest"),
@@ -1833,7 +1833,7 @@ function M.edit_limits()
   if not s then
     return
   end
-  local cfg = config.get()
+  local cfg = config.options
   local cur_tl = session.problem.timeLimit or cfg.default_time_limit
   local cur_ml = session.problem.memoryLimit or cfg.default_memory_limit
 

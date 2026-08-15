@@ -38,7 +38,7 @@ end
 function M.new_local(src_path)
   src_path = util.abspath(src_path)
   local stem = vim.fn.fnamemodify(src_path, ":t:r")
-  local cfg = config.get()
+  local cfg = config.options
   return {
     name = "Local: " .. stem,
     url = src_path,
@@ -74,8 +74,8 @@ function M.load_or_create(src_path)
 
   data.tests = data.tests or {}
   data.srcPath = data.srcPath or src_path
-  data.timeLimit = data.timeLimit or config.get().default_time_limit
-  data.memoryLimit = data.memoryLimit or config.get().default_memory_limit
+  data.timeLimit = data.timeLimit or config.options.default_time_limit
+  data.memoryLimit = data.memoryLimit or config.options.default_memory_limit
   data.name = data.name or ("Local: " .. vim.fn.fnamemodify(src_path, ":t:r"))
   data.url = data.url or src_path
   data.group = data.group or "local"
@@ -191,7 +191,7 @@ end
 ---@return pretest.Problem
 function M.from_companion(task, src_path)
   src_path = util.abspath(src_path)
-  local cfg = config.get()
+  local cfg = config.options
   local problem = vim.deepcopy(task)
   if type(problem) ~= "table" then
     problem = {}

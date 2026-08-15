@@ -15,7 +15,7 @@ end
 ---Whether artifacts are stored in a shared `save_dir` (names may collide).
 ---@return boolean
 function M.uses_save_dir()
-  local save_dir = require("pretest.config").get().save_dir
+  local save_dir = require("pretest.config").options.save_dir
   return type(save_dir) == "string" and save_dir ~= ""
 end
 
@@ -24,7 +24,7 @@ end
 ---@return string
 function M.artifact_dir(src_path)
   if M.uses_save_dir() then
-    return vim.fn.expand(require("pretest.config").get().save_dir)
+    return vim.fn.expand(require("pretest.config").options.save_dir)
   end
   local src_dir = vim.fn.fnamemodify(M.abspath(src_path), ":h")
   return vim.fs.joinpath(src_dir, ".pretest")
@@ -193,7 +193,7 @@ end
 ---@param path string
 ---@return string|nil
 function M.filetype_from_path(path)
-  local languages = require("pretest.config").get().languages or {}
+  local languages = require("pretest.config").options.languages or {}
   local detected = vim.filetype.match({ filename = path })
   if detected and languages[detected] then
     return detected

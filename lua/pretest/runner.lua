@@ -984,7 +984,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
         finish_all()
         return
       end
-      local cfg = config.get()
+      local cfg = config.options
       local tl = problem.timeLimit or cfg.default_time_limit
       local ml = problem.memoryLimit or cfg.default_memory_limit
       job.kill_current = M.run_one(src_path, ft, tc.input, tc.output, tl, ml, function(result)

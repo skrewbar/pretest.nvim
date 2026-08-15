@@ -131,7 +131,7 @@ end
 ---@param ext string
 ---@return string|nil
 local function template_for_ext(ext)
-  local tmpl = config.get().companion.template
+  local tmpl = config.options.companion.template
   if type(tmpl) == "string" and tmpl ~= "" then
     return vim.fn.expand(tmpl)
   end
@@ -206,7 +206,7 @@ local function store_testcases(bufnr, task)
   local existing, ppath = prob.load_or_create(path)
   -- Companion payload is authoritative for name, limits, and other metadata.
   local incoming = prob.from_companion(task, path)
-  local cfg = config.get().companion
+  local cfg = config.options.companion
 
   if #existing.tests > 0 and not cfg.replace_testcases then
     local choice = vim.fn.confirm(
@@ -259,7 +259,7 @@ end
 ---@param task pretest.CCTask
 ---@param finished fun()
 local function store_single_problem(task, finished)
-  local cfg = config.get().companion
+  local cfg = config.options.companion
   local ext = cfg.extension
   local evaluated = expand_path(cfg.problem_path, task, ext)
   if not evaluated then
@@ -287,7 +287,7 @@ end
 ---@param tasks pretest.CCTask[]
 ---@param finished fun()
 local function store_contest(tasks, finished)
-  local cfg = config.get().companion
+  local cfg = config.options.companion
   local ext = cfg.extension
   local evaluated = expand_path(cfg.contest_dir, tasks[1], ext)
   if not evaluated then
@@ -542,7 +542,7 @@ function M.start(mode)
     end
   end
 
-  local port = config.get().companion.port
+  local port = config.options.companion.port
   local server = vim.uv.new_tcp()
   if not server then
     util.notify("failed to create TCP socket", vim.log.levels.ERROR)

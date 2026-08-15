@@ -278,26 +278,21 @@ function M.setup(opts)
   end
 end
 
----@return pretest.Config
-function M.get()
-  return M.options
-end
-
 ---@param action string
 ---@return pretest.UiKeyBinding[]
 function M.ui_key_list(action)
   local default_modes = UI_KEY_MODES[action] or { "n" }
-  local spec = (M.get().ui_keys or {})[action]
+  local spec = (M.options.ui_keys or {})[action]
   return normalize_ui_key_spec(spec, default_modes)
 end
 
 ---@param ft string|nil
 ---@return pretest.LangConfig|nil
 function M.language(ft)
-  if type(ft) ~= "string" or ft == "" then
+  if type(ft) ~= "string" then
     return nil
   end
-  return (M.get().languages or {})[ft]
+  return M.options.languages[ft]
 end
 
 return M
