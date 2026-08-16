@@ -965,11 +965,6 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
       end
       local idx = indices[i]
       local tc = problem.tests[idx]
-      if not tc then
-        i = i + 1
-        next_case()
-        return
-      end
       if hooks.on_case_start then
         hooks.on_case_start(idx)
       end

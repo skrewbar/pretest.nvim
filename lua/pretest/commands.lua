@@ -31,16 +31,17 @@ local receive_subcommands = {
 
 ---Parse 1-based indices from non-empty string args.
 ---@param args string[]
+---@param n integer number of testcases (`1..n` valid)
 ---@return integer[]|nil nil on parse error
-local function parse_indices(args)
+local function parse_indices(args, n)
   local out = {}
   for _, s in ipairs(args) do
-    local n = tonumber(s)
-    if not n then
+    local idx = tonumber(s)
+    if not idx or idx ~= math.floor(idx) or idx < 1 or idx > n then
       util.notify("invalid index: " .. s, vim.log.levels.ERROR)
       return nil
     end
-    out[#out + 1] = n
+    out[#out + 1] = idx
   end
   return out
 end
@@ -52,11 +53,12 @@ local function run_with_indices(args, do_compile)
   if not s then
     return
   end
+  local n = #s.problem.tests
   local indices
   if not args or #args == 0 then
-    indices = util.all_indices(#s.problem.tests)
+    indices = util.all_indices(n)
   else
-    indices = parse_indices(args)
+    indices = parse_indices(args, n)
     if not indices then
       return
     end
