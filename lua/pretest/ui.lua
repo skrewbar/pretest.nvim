@@ -1301,13 +1301,21 @@ local UI_KEY_ACTIONS = {
     M.stop()
   end,
   run_all = function()
-    M.run(nil, true)
+    local s = M.ensure_session()
+    if not s then
+      return
+    end
+    M.run(util.all_indices(#s.problem.tests), true)
   end,
   run_one = function()
     M.run({ session and session.index }, true)
   end,
   run_all_no_compile = function()
-    M.run(nil, false)
+    local s = M.ensure_session()
+    if not s then
+      return
+    end
+    M.run(util.all_indices(#s.problem.tests), false)
   end,
   run_one_no_compile = function()
     M.run({ session and session.index }, false)
@@ -1922,7 +1930,7 @@ function M.delete_testcase(index)
   end
 end
 
----@param indices integer[]|nil
+---@param indices integer[] 1-based indices to run (must be non-empty)
 ---@param do_compile boolean
 function M.run(indices, do_compile)
   local s = M.ensure_session()
@@ -1931,6 +1939,10 @@ function M.run(indices, do_compile)
   end
   if #s.problem.tests == 0 then
     util.notify("no testcases — use :Pretest add", vim.log.levels.WARN)
+    return
+  end
+  if not indices or #indices == 0 then
+    util.notify("no testcases selected", vim.log.levels.WARN)
     return
   end
   if vim.api.nvim_buf_is_valid(s.src_bufnr) and vim.bo[s.src_bufnr].modified then
@@ -1945,14 +1957,7 @@ function M.run(indices, do_compile)
 
   s.compile_stderr = ""
   s.compile_status = nil
-  local targets = indices
-  if not targets or #targets == 0 then
-    targets = {}
-    for i = 1, #s.problem.tests do
-      targets[#targets + 1] = i
-    end
-  end
-  for _, i in ipairs(targets) do
+  for _, i in ipairs(indices) do
     s.results[i] = {
       verdict = "Pending",
       stdout = "",
@@ -1962,7 +1967,7 @@ function M.run(indices, do_compile)
   render()
 
   local run_src = s.src_path
-  runner.run_tests(s.src_path, s.filetype, s.problem, targets, do_compile, {
+  runner.run_tests(s.src_path, s.filetype, s.problem, indices, do_compile, {
     on_compile_start = function()
       local st, live = state_for(run_src)
       st.compile_stderr = ""

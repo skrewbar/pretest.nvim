@@ -401,6 +401,17 @@ function M.attach_re_cause(result)
   return result
 end
 
+---1-based indices `1..n` (empty when `n < 1`).
+---@param n integer
+---@return integer[]
+function M.all_indices(n)
+  local out = {}
+  for i = 1, n do
+    out[i] = i
+  end
+  return out
+end
+
 ---@param bufnr integer|nil
 ---@return string|nil path
 ---@return string|nil filetype # nil only when path is nil; otherwise string (possibly "")

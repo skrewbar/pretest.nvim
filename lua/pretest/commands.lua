@@ -29,14 +29,12 @@ local receive_subcommands = {
   "status",
 }
 
----@param indices string[]|nil
----@return integer[]|nil
-local function parse_indices(indices)
-  if not indices or #indices == 0 then
-    return nil
-  end
+---Parse 1-based indices from non-empty string args.
+---@param args string[]
+---@return integer[]|nil nil on parse error
+local function parse_indices(args)
   local out = {}
-  for _, s in ipairs(indices) do
+  for _, s in ipairs(args) do
     local n = tonumber(s)
     if not n then
       util.notify("invalid index: " .. s, vim.log.levels.ERROR)
@@ -45,6 +43,25 @@ local function parse_indices(indices)
     out[#out + 1] = n
   end
   return out
+end
+
+---@param args string[]
+---@param do_compile boolean
+local function run_with_indices(args, do_compile)
+  local s = ui.ensure_session()
+  if not s then
+    return
+  end
+  local indices
+  if not args or #args == 0 then
+    indices = util.all_indices(#s.problem.tests)
+  else
+    indices = parse_indices(args)
+    if not indices then
+      return
+    end
+  end
+  ui.run(indices, do_compile)
 end
 
 ---@param args string
@@ -63,8 +80,7 @@ function M.command(args)
   elseif sub == "toggle_hints" then
     ui.toggle_hints()
   elseif sub == "run" then
-    local rest = vim.list_slice(parts, 2)
-    ui.run(parse_indices(rest), true)
+    run_with_indices(vim.list_slice(parts, 2), true)
   elseif sub == "run_current" then
     local s = ui.get_session() or ui.ensure_session()
     if not s then
@@ -77,8 +93,7 @@ function M.command(args)
     end
     ui.run({ idx }, true)
   elseif sub == "run_no_compile" then
-    local rest = vim.list_slice(parts, 2)
-    ui.run(parse_indices(rest), false)
+    run_with_indices(vim.list_slice(parts, 2), false)
   elseif sub == "stop" then
     ui.stop()
   elseif sub == "add" then

@@ -927,25 +927,16 @@ end
 ---@param src_path string
 ---@param ft string
 ---@param problem pretest.Problem
----@param indices integer[]|nil 1-based indices; nil = all
+---@param indices integer[] 1-based indices to run (must be non-empty)
 ---@param do_compile boolean
 ---@param hooks { on_compile_start?: fun(), on_compile_done?: fun(ok: boolean, stderr: string), on_case_start?: fun(i: integer), on_case_done?: fun(i: integer, result: pretest.CaseResult), on_all_done?: fun(cancelled: boolean) }
 function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
-  hooks = hooks or {}
   src_path = util.abspath(src_path)
   M.stop(src_path)
 
   ---@type pretest.ActiveRun
   local job = { cancelled = false, compiling = false }
   active[src_path] = job
-
-  local list = indices
-  if not list or #list == 0 then
-    list = {}
-    for i = 1, #problem.tests do
-      list[i] = i
-    end
-  end
 
   local function finish_all()
     if active[src_path] ~= job then
@@ -968,11 +959,11 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
         finish_all()
         return
       end
-      if i > #list then
+      if i > #indices then
         finish_all()
         return
       end
-      local idx = list[i]
+      local idx = indices[i]
       local tc = problem.tests[idx]
       if not tc then
         i = i + 1
@@ -986,9 +977,9 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
         finish_all()
         return
       end
-      local cfg = config.options
-      local tl = problem.timeLimit or cfg.default_time_limit
-      local ml = problem.memoryLimit or cfg.default_memory_limit
+      local opt = config.options
+      local tl = problem.timeLimit or opt.default_time_limit
+      local ml = problem.memoryLimit or opt.default_memory_limit
       job.kill_current = M.run_one(src_path, ft, tc.input, tc.output, tl, ml, function(result)
         job.kill_current = nil
         if not is_current() then
@@ -1031,7 +1022,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
         time_ms = 0,
         code = 1,
       }
-      for _, idx in ipairs(list) do
+      for _, idx in ipairs(indices) do
         if hooks.on_case_done then
           hooks.on_case_done(idx, ce)
         end
