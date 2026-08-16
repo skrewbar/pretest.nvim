@@ -952,8 +952,8 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
     return active[src_path] == job
   end
 
-  local function run_queue(start_at)
-    local i = start_at
+  local function run_queue()
+    local i = 1
     local function next_case()
       if job.cancelled or not is_current() then
         finish_all()
@@ -995,7 +995,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
   end
 
   if not do_compile then
-    run_queue(1)
+    run_queue()
     return
   end
 
@@ -1025,7 +1025,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
       finish_all()
       return
     end
-    run_queue(1)
+    run_queue()
   end)
 
   -- Only async compiles expose a SystemObj; sync no-op/failure already finished above.
