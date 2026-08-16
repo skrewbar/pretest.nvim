@@ -953,8 +953,10 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
   end
 
   local function run_queue()
-    local i = 1
-    local function next_case()
+    local i = 0
+    local function run_next()
+      i = i + 1
+
       if job.cancelled or not is_current() then
         finish_all()
         return
@@ -987,11 +989,11 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
           finish_all()
           return
         end
-        i = i + 1
-        next_case()
+        run_next()
       end)
     end
-    next_case()
+
+    run_next()
   end
 
   if not do_compile then
