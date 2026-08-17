@@ -175,6 +175,22 @@ local function set_lines(buf, lines)
   vim.bo[buf].modified = false
 end
 
+---Fill Input/Expected from the current testcase so flush_edits can always read them.
+local function load_edit_bufs()
+  if not session then
+    return
+  end
+  local n = #session.problem.tests
+  local tc = session.problem.tests[session.index]
+  set_lines(session.bufs.input, tc and util.split_lines(tc.input) or { "" })
+  vim.bo[session.bufs.input].modifiable = n > 0
+  apply_empty_eol_marks(session.bufs.input)
+
+  set_lines(session.bufs.expected, tc and util.split_lines(tc.output) or { "" })
+  vim.bo[session.bufs.expected].modifiable = n > 0
+  apply_empty_eol_marks(session.bufs.expected)
+end
+
 ---@param name string
 ---@param modifiable boolean
 ---@param buftype string|nil # default: editable → acwrite, readonly → nofile
@@ -1182,13 +1198,8 @@ local function render()
 
   write_header()
 
-  local n = #session.problem.tests
-  local idx = session.index
   local result = current_result()
   local verdict = result and result.verdict or "Pending"
-  local tc = session.problem.tests[idx]
-  local input_lines = tc and util.split_lines(tc.input) or { "" }
-  local expected_lines = tc and util.split_lines(tc.output) or { "" }
   local out_lines = result and util.split_lines(result.stdout) or { "" }
   local re_lines = nil
   if verdict == "RE" then
@@ -1203,11 +1214,7 @@ local function render()
   end
   local err_lines = err_text ~= "" and util.split_lines(err_text) or nil
 
-  set_lines(session.bufs.input, input_lines)
-  vim.bo[session.bufs.input].modifiable = n > 0
-
-  set_lines(session.bufs.expected, expected_lines)
-  vim.bo[session.bufs.expected].modifiable = n > 0
+  load_edit_bufs()
 
   set_lines(session.bufs.output, out_lines)
   vim.bo[session.bufs.output].modifiable = false
@@ -1229,8 +1236,6 @@ local function render()
   end
 
   for _, buf in ipairs({
-    session.bufs.input,
-    session.bufs.expected,
     session.bufs.output,
     session.bufs.re,
     session.bufs.stderr,
@@ -1589,6 +1594,7 @@ local function switch_source(src_bufnr, abs, ft)
       session.index = 1
     end
   end
+  load_edit_bufs()
 end
 
 ---@param bufnr integer
@@ -1701,6 +1707,7 @@ function M.ensure_session(src_bufnr)
   else
     session.index = 1
   end
+  load_edit_bufs()
   return session
 end
 
