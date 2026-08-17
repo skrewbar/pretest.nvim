@@ -976,7 +976,7 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
       end
       local opt = config.options
       local tl = problem.timeLimit or opt.default_time_limit
-      local ml = problem.memoryLimit or opt.default_memory_limit
+      local ml = problem.memoryLimit
       job.kill_current = M.run_one(src_path, ft, tc.input, tc.output, tl, ml, function(result)
         job.kill_current = nil
         if not is_current() then

@@ -986,7 +986,7 @@ local function write_header()
   end
   local layout = header_layout(n, #hint_lines)
   local tl = session.problem.timeLimit or config.options.default_time_limit
-  local ml = session.problem.memoryLimit or config.options.default_memory_limit
+  local ml = session.problem.memoryLimit
 
   local header = {
     string.format("%s", session.problem.name or "Pretest"),
@@ -1841,11 +1841,23 @@ function M.edit_limits()
   end
   local cfg = config.options
   local cur_tl = s.problem.timeLimit or cfg.default_time_limit
-  local cur_ml = s.problem.memoryLimit or cfg.default_memory_limit
+  local cur_ml = s.problem.memoryLimit
 
   local function parse_positive_int(val, label)
     local n = tonumber(val)
     if not n or n ~= math.floor(n) or n <= 0 then
+      util.notify("invalid " .. label, vim.log.levels.ERROR)
+      return nil
+    end
+    return n
+  end
+
+  ---@param val string
+  ---@param label string
+  ---@return integer|nil
+  local function parse_nonneg_int(val, label)
+    local n = tonumber(val)
+    if not n or n ~= math.floor(n) or n < 0 then
       util.notify("invalid " .. label, vim.log.levels.ERROR)
       return nil
     end
@@ -1860,12 +1872,12 @@ function M.edit_limits()
     if not time_n then
       return
     end
-    vim.ui.input({ prompt = "Memory limit (MB): ", default = tostring(cur_ml) }, function(mem_s)
+    vim.ui.input({ prompt = "Memory limit (MB, 0=off): ", default = tostring(cur_ml) }, function(mem_s)
       if mem_s == nil then
         return
       end
-      local mem_n = parse_positive_int(mem_s, "memory limit")
-      if not mem_n then
+      local mem_n = parse_nonneg_int(mem_s, "memory limit")
+      if mem_n == nil then
         return
       end
       s.problem.timeLimit = time_n

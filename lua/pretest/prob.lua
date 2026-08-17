@@ -75,7 +75,7 @@ function M.load_or_create(src_path)
   data.tests = data.tests or {}
   data.srcPath = data.srcPath or src_path
   data.timeLimit = data.timeLimit or config.options.default_time_limit
-  data.memoryLimit = data.memoryLimit or config.options.default_memory_limit
+  data.memoryLimit = (data.memoryLimit == nil) and config.options.default_memory_limit or data.memoryLimit
   data.name = data.name or ("Local: " .. vim.fn.fnamemodify(src_path, ":t:r"))
   data.url = data.url or src_path
   data.group = data.group or "local"
@@ -204,7 +204,7 @@ function M.from_companion(task, src_path)
   if problem.interactive == nil then
     problem.interactive = false
   end
-  problem.memoryLimit = problem.memoryLimit or cfg.default_memory_limit
+  problem.memoryLimit = (problem.memoryLimit == nil) and cfg.default_memory_limit or problem.memoryLimit
   problem.timeLimit = problem.timeLimit or cfg.default_time_limit
   problem.tests = tests_from_companion(task.tests)
   return problem --[[@as pretest.Problem]]
