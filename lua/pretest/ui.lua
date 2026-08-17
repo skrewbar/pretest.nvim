@@ -1942,6 +1942,33 @@ function M.delete_testcase(index)
   end
 end
 
+---Return true if language run config for `src_path`/`ft` is usable; otherwise notify and return false.
+---@param src_path string
+---@param ft string
+---@return boolean
+local function check_lang_config(src_path, ft)
+  local lang = config.language(ft)
+  if not lang or not lang.run then
+    util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
+    return false
+  end
+  local exec = lang.run.exec
+  if type(exec) == "function" then
+    exec = exec({
+      src_path = util.abspath(src_path),
+      bin_path = runner.bin_path_for(src_path, ft),
+    })
+  end
+  if type(exec) ~= "string" then
+    util.notify(
+      "run.exec not configured for filetype: " .. util.filetype_label(ft),
+      vim.log.levels.ERROR
+    )
+    return false
+  end
+  return true
+end
+
 ---@param indices integer[] 1-based indices to run (must be non-empty)
 ---@param do_compile boolean
 function M.run(indices, do_compile)
@@ -1955,6 +1982,9 @@ function M.run(indices, do_compile)
   end
   if not indices or #indices == 0 then
     util.notify("no testcases selected", vim.log.levels.WARN)
+    return
+  end
+  if not check_lang_config(s.src_path, s.filetype) then
     return
   end
   if vim.api.nvim_buf_is_valid(s.src_bufnr) and vim.bo[s.src_bufnr].modified then

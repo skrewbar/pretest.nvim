@@ -337,10 +337,20 @@ local function expand_args(args, ctx)
   return out
 end
 
----@param field pretest.LangExec|pretest.LangArgs|nil
+---@param field pretest.LangExec
 ---@param ctx pretest.RunCtx
----@return string|string[]|nil
-local function eval_field(field, ctx)
+---@return string
+local function eval_exec(field, ctx)
+  if type(field) == "function" then
+    return field(ctx)
+  end
+  return field
+end
+
+---@param field pretest.LangArgs|nil
+---@param ctx pretest.RunCtx
+---@return string[]|nil
+local function eval_args(field, ctx)
   if type(field) == "function" then
     return field(ctx)
   end
@@ -474,12 +484,12 @@ function M.compile(src_path, ft, on_done)
     src_path = util.abspath(src_path),
     bin_path = M.bin_path_for(src_path, ft),
   }
-  local exec = eval_field(lang.compile.exec, ctx)
+  local exec = eval_exec(lang.compile.exec, ctx)
   if type(exec) ~= "string" then
     on_done(false, "compile.exec not configured for filetype: " .. util.filetype_label(ft))
     return nil
   end
-  local raw_args = eval_field(lang.compile.args, ctx)
+  local raw_args = eval_args(lang.compile.args, ctx)
   local args = expand_args(type(raw_args) == "table" and raw_args or {}, ctx)
   local cmd = { exec }
   vim.list_extend(cmd, args)
@@ -504,61 +514,30 @@ function M.compile(src_path, ft, on_done)
   return obj
 end
 
----Run one testcase with CompetiTest-style timing:
 ---`vim.uv.now()` from after spawn/stdio setup until process exit (compile not included).
+---Caller must ensure run config is valid (`lang.run.exec` evaluates to a string).
 ---@param src_path string
 ---@param ft string
 ---@param input string
 ---@param expected string
 ---@param time_limit_ms integer
----@param memory_limit_mb integer|fun(result: pretest.CaseResult)|nil
----@param on_done fun(result: pretest.CaseResult)|nil
+---@param memory_limit_mb integer 0 disables MLE checking / RSS sampling
+---@param on_done fun(result: pretest.CaseResult)
 ---@return fun()|nil kill
 function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb, on_done)
-  if type(memory_limit_mb) == "function" then
-    on_done = memory_limit_mb
-    memory_limit_mb = nil
-  end
-  ---@cast on_done fun(result: pretest.CaseResult)
-  ---@cast memory_limit_mb integer|nil
-
-  local lang = config.language(ft)
-  if not lang or not lang.run then
-    on_done(util.attach_re_cause({
-      verdict = "RE",
-      stdout = "",
-      stderr = "unsupported filetype: " .. util.filetype_label(ft),
-      time_ms = 0,
-      code = -1,
-    }))
-    return
-  end
-
+  local lang = config.language(ft) ---@cast lang pretest.LangConfig
   local ctx = {
     src_path = util.abspath(src_path),
     bin_path = M.bin_path_for(src_path, ft),
   }
-  local exec = eval_field(lang.run.exec, ctx)
-  if type(exec) ~= "string" then
-    on_done(util.attach_re_cause({
-      verdict = "RE",
-      stdout = "",
-      stderr = "run.exec not configured for filetype: " .. util.filetype_label(ft),
-      time_ms = 0,
-      code = -1,
-    }))
-    return
-  end
-  local args = eval_field(lang.run.args, ctx)
-  if type(args) ~= "table" then
-    args = {}
-  end
+  local exec = eval_exec(lang.run.exec, ctx)
+  local args = eval_args(lang.run.args, ctx) or {}
 
   ---@type "gnu_time"|"bsd_time"|"procfs"|"win_peak"|nil
   local mem_mode
   local rss_path ---@type string|nil
   local time_wrap = false
-  if memory_limit_mb and memory_limit_mb > 0 then
+  if memory_limit_mb > 0 then
     if IS_WINDOWS then
       mem_mode = "win_peak"
     else
@@ -709,8 +688,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
       and time_limit_ms > 0
       and elapsed_ms >= time_limit_ms
     local limit_mb = memory_limit_mb
-    local over_mem = limit_mb
-      and limit_mb > 0
+    local over_mem = limit_mb > 0
       and peak_kb
       and peak_kb > limit_mb * 1024
 
@@ -722,7 +700,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
       result.reason_detail = string.format(
         "peak RSS %s (limit %dMB)",
         format_rss(peak_kb),
-        limit_mb or 0
+        limit_mb
       )
     elseif is_timeout then
       result.verdict = "TLE"
@@ -761,8 +739,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
   if time_wrap then
     spawn_opts.detached = true
   end
-  local spawn_pid
-  handle, spawn_pid = uv.spawn(exec, spawn_opts, function(code, signal)
+  handle = uv.spawn(exec, spawn_opts, function(code, signal)
     exited = true
     exit_code = code
     exit_signal = signal
@@ -838,12 +815,9 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
     return
   end
 
-  pid = handle.pid or spawn_pid
-  if type(pid) ~= "number" and handle.get_pid then
-    pid = handle:get_pid()
-  end
+  pid = handle:get_pid()
 
-  if mem_mode == "win_peak" and type(pid) == "number" then
+  if mem_mode == "win_peak" then
     win_watch_done = false
     local c = win_watch_peak_kb(pid, function(kb)
       win_watch_done = true
@@ -859,8 +833,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
     end
   end
 
-  -- Feed stdin then close (CompetiTest-style).
-  uv.write(stdin, input or "", function()
+  uv.write(stdin, input, function()
     if not stdin:is_closing() then
       uv.shutdown(stdin)
     end
@@ -905,7 +878,6 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
     end
   end
 
-  -- Start the clock after spawn/stdio setup, matching CompetiTest.
   starting_time = uv.now()
 
   return function()
@@ -924,6 +896,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
   end
 end
 
+---Run selected testcases. Caller must ensure run config is valid.
 ---@param src_path string
 ---@param ft string
 ---@param problem pretest.Problem
