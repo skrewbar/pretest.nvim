@@ -9,6 +9,7 @@ local subcommands = {
   "toggle_hints",
   "run",
   "run_current",
+  "run_current_no_compile",
   "run_no_compile",
   "stop",
   "add",
@@ -66,6 +67,20 @@ local function run_with_indices(args, do_compile)
   ui.run(indices, do_compile)
 end
 
+---@param do_compile boolean
+local function run_current(do_compile)
+  local s = ui.get_session() or ui.ensure_session()
+  if not s then
+    return
+  end
+  local idx = s.index
+  if idx < 1 then
+    util.notify("no current testcase", vim.log.levels.WARN)
+    return
+  end
+  ui.run({ idx }, do_compile)
+end
+
 ---@param args string
 function M.command(args)
   local parts = vim.split(args, " ", { plain = true, trimempty = true })
@@ -84,16 +99,9 @@ function M.command(args)
   elseif sub == "run" then
     run_with_indices(vim.list_slice(parts, 2), true)
   elseif sub == "run_current" then
-    local s = ui.get_session() or ui.ensure_session()
-    if not s then
-      return
-    end
-    local idx = s.index
-    if idx < 1 then
-      util.notify("no current testcase", vim.log.levels.WARN)
-      return
-    end
-    ui.run({ idx }, true)
+    run_current(true)
+  elseif sub == "run_current_no_compile" then
+    run_current(false)
   elseif sub == "run_no_compile" then
     run_with_indices(vim.list_slice(parts, 2), false)
   elseif sub == "stop" then

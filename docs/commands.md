@@ -6,6 +6,7 @@
 :Pretest toggle_hints
 :Pretest run [index...]
 :Pretest run_current
+:Pretest run_current_no_compile
 :Pretest run_no_compile [index...]
 :Pretest stop
 :Pretest add
@@ -30,6 +31,7 @@
 | `toggle_hints` | Show or hide header key hints |
 | `run [index...]` | Compile (if needed) and run all cases, or the given indices |
 | `run_current` | Compile (if needed) and run the current case |
+| `run_current_no_compile` | Run the current case without compiling |
 | `run_no_compile [index...]` | Run without compiling |
 | `stop` | Stop an in-flight compile/run |
 | `add` | Add a testcase |
