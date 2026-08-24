@@ -143,6 +143,9 @@ local function configure_win(win, kind)
     vim.wo[win].listchars = "tab:>·,trail:-"
   end
   vim.wo[win].cursorline = false
+  if session and session.ui_mode == "sidebar" then
+    vim.wo[win].winfixwidth = true
+  end
   -- Sidebar last-used winbar is remembered on the buffer; floats use border titles.
   if session and session.ui_mode == "float" then
     set_winbar(win, "")
