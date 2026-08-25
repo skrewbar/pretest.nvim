@@ -2122,6 +2122,39 @@ local function ensure_ui_open()
   focus_input_win()
 end
 
+---Open `src_path` in the current window as a listed buffer without `:edit`
+---(which prompts to save / reloads and can discard unsaved changes).
+---@param src_path string
+local function open_source(src_path)
+  local cur = vim.api.nvim_get_current_buf()
+  local cur_name = vim.api.nvim_buf_get_name(cur)
+  if cur_name ~= "" and util.abspath(cur_name) == src_path then
+    return
+  end
+
+  if vim.api.nvim_buf_is_valid(cur) and vim.bo[cur].buftype == "" then
+    vim.bo[cur].buflisted = true
+  end
+
+  local bufnr = vim.fn.bufadd(src_path)
+  if bufnr == 0 then
+    return
+  end
+  vim.bo[bufnr].buflisted = true
+  vim.fn.bufload(bufnr)
+  if vim.api.nvim_get_current_buf() == bufnr then
+    return
+  end
+  if vim.o.hidden then
+    vim.api.nvim_set_current_buf(bufnr)
+  else
+    vim.cmd.buffer({
+      args = { tostring(bufnr) },
+      mods = { hide = true },
+    })
+  end
+end
+
 ---Save `problem` for `src_path`, adopt it into the session, and show the UI.
 ---@param src_path string
 ---@param problem pretest.Problem
@@ -2163,7 +2196,7 @@ function M.apply_problem(src_path, problem)
     end
   end
   focus_non_ui_win()
-  vim.cmd.edit(vim.fn.fnameescape(src_path))
+  open_source(src_path)
   local s = M.ensure_session()
   if not s then
     return false
