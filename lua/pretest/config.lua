@@ -144,7 +144,7 @@ local defaults = {
   },
   languages = {
     cpp = {
-      extensions = { "cpp", "cc", "cxx", "c" },
+      extensions = { "cpp", "cc", "cxx" },
       compile = {
         exec = "g++",
         args = { "-o", "$bin", "$src" },

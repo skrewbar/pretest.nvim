@@ -4,8 +4,11 @@ All keys are optional. `languages` is deep-merged, so you can override just `com
 
 With [lazy.nvim](https://github.com/folke/lazy.nvim), pass the same table as `opts`.
 
+Default config:
+
 ```lua
 require("pretest").setup({
+  save_dir = nil, -- nil → {src_dir}/.pretest
   ui = "sidebar", -- or "float"
   -- Size: (0, 1] is a fraction of editor columns/lines; > 1 is cells.
   sidebar_width = 40,
@@ -17,24 +20,56 @@ require("pretest").setup({
   float_max_width = nil,
   float_min_height = 16,
   float_max_height = nil,
-  save_dir = nil, -- nil → {src_dir}/.pretest
   default_time_limit = 3000, -- ms
   default_memory_limit = 1024, -- MB; peak RSS over this is MLE (0 disables)
   show_header_hints = true, -- starting value for :Pretest toggle_hints
-  sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 }, -- relative heights
-  float_sections = { header = 1, input = 1, expected = 1, output = 1 },
-  -- ui_keys = { ... }, -- see "UI keys" below
+  sidebar_sections = { -- relative heights
+    header = 1,
+    input = 1,
+    expected = 1,
+    output = 1,
+  },
+  float_sections = {
+    header = 1,
+    input = 1,
+    expected = 1,
+    output = 1,
+  },
+  ui_keys = {
+    next_case = "<C-n>",
+    prev_case = "<C-p>",
+    next_section = "<Tab>",
+    prev_section = "<S-Tab>",
+    close = "q",
+    stop = "s",
+    run_all = "R",
+    run_one = "r",
+    -- <C-R>/<C-r> are identical in terminals; use Ctrl-Shift-r for "all".
+    run_all_no_compile = "<C-S-r>",
+    run_one_no_compile = "<C-r>",
+  },
   languages = {
     cpp = {
-      extensions = { "cpp", "cc", "cxx", "c" },
+      extensions = { "cpp", "cc", "cxx" },
       compile = {
         exec = "g++", -- e.g. "g++-16" or "clang++"
         args = { "-o", "$bin", "$src" },
       },
+      run = {
+        exec = function(ctx)
+          return ctx.bin_path
+        end,
+        args = {},
+      },
     },
     python = {
       extensions = { "py" },
-      run = { exec = "python3" },
+      run = {
+        exec = "python3",
+        args = function(ctx)
+          return { ctx.src_path }
+        end,
+      },
     },
   },
   companion = {
@@ -61,21 +96,6 @@ UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `ma
 UI-buffer maps (not the `<leader>t` suggested keys). Each action is a string, a list, `{ "<Tab>", modes = "n" }`, or `false` to unbind. Named actions replace the whole value; omitted actions keep the default.
 
 Defaults: `next_case` / `prev_case` / `next_section` / `prev_section` use Normal and Insert; the rest are Normal only. Set `modes` on a binding to override, e.g. `{ "<Tab>", modes = "n" }` if Insert should type a tab.
-
-```lua
-ui_keys = {
-  next_case = "<C-n>",
-  prev_case = "<C-p>",
-  next_section = "<Tab>",
-  prev_section = "<S-Tab>",
-  close = "q",
-  stop = "s",
-  run_all = "R",
-  run_one = "r",
-  run_all_no_compile = "<C-S-r>", -- terminals often cannot tell <C-R> from <C-r>
-  run_one_no_compile = "<C-r>",
-}
-```
 
 ```lua
 ui_keys = {
