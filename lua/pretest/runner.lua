@@ -324,15 +324,26 @@ local function format_rss(kb)
   return string.format("%dKB", kb)
 end
 
+---Replace a whole argv/`exec` token. Substrings and function results are left as-is.
+---@param s string
+---@param ctx pretest.RunCtx
+---@return string
+local function expand_placeholders(s, ctx)
+  if s == "$src" then
+    return ctx.src_path
+  elseif s == "$bin" then
+    return ctx.bin_path
+  end
+  return s
+end
+
 ---@param args string[]
 ---@param ctx pretest.RunCtx
 ---@return string[]
 local function expand_args(args, ctx)
   local out = {}
   for _, a in ipairs(args) do
-    a = a:gsub("%$src", ctx.src_path)
-    a = a:gsub("%$bin", ctx.bin_path)
-    table.insert(out, a)
+    table.insert(out, expand_placeholders(a, ctx))
   end
   return out
 end
@@ -344,6 +355,9 @@ local function eval_exec(field, ctx)
   if type(field) == "function" then
     return field(ctx)
   end
+  if type(field) == "string" then
+    return expand_placeholders(field, ctx)
+  end
   return field
 end
 
@@ -353,6 +367,9 @@ end
 local function eval_args(field, ctx)
   if type(field) == "function" then
     return field(ctx)
+  end
+  if type(field) == "table" then
+    return expand_args(field, ctx)
   end
   return field
 end
@@ -489,8 +506,7 @@ function M.compile(src_path, ft, on_done)
     on_done(false, "compile.exec not configured for filetype: " .. util.filetype_label(ft))
     return nil
   end
-  local raw_args = eval_args(lang.compile.args, ctx)
-  local args = expand_args(type(raw_args) == "table" and raw_args or {}, ctx)
+  local args = eval_args(lang.compile.args, ctx) or {}
   local cmd = { exec }
   vim.list_extend(cmd, args)
 

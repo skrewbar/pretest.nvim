@@ -150,9 +150,7 @@ local defaults = {
         args = { "-o", "$bin", "$src" },
       },
       run = {
-        exec = function(ctx)
-          return ctx.bin_path
-        end,
+        exec = "$bin",
         args = {},
       },
     },
@@ -160,9 +158,7 @@ local defaults = {
       extensions = { "py" },
       run = {
         exec = "python3",
-        args = function(ctx)
-          return { ctx.src_path }
-        end,
+        args = { "$src" },
       },
     },
   },

@@ -56,9 +56,7 @@ require("pretest").setup({
         args = { "-o", "$bin", "$src" },
       },
       run = {
-        exec = function(ctx)
-          return ctx.bin_path
-        end,
+        exec = "$bin",
         args = {},
       },
     },
@@ -66,9 +64,7 @@ require("pretest").setup({
       extensions = { "py" },
       run = {
         exec = "python3",
-        args = function(ctx)
-          return { ctx.src_path }
-        end,
+        args = { "$src" },
       },
     },
   },
@@ -109,7 +105,7 @@ ui_keys = {
 
 ## Languages
 
-`$src` and `$bin` in `compile.args` are pretest placeholders. Before compile they expand to the absolute source path and the output binary path. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the argv table. `exec` and `run.args` do not expand `$src` / `$bin` — use a function if you need those paths there. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
+`$src` and `$bin` in `compile`/`run` `exec` and `args` are pretest placeholders. An `exec` string or argv element that is exactly `$src` or `$bin` expands to the absolute source path or output binary path; substrings are not expanded. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the executable string (`exec`) or argv table (`args`). Function results are not expanded. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
 
 Memory limit is judged from **peak RSS** after the case ends. The process is not killed early for memory; TLE still applies. Interpreter overhead (Python) counts toward RSS. Set the limit to `0` to disable.
 
