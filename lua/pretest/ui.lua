@@ -412,7 +412,7 @@ function M.setup()
   end
   highlights_setup = true
   apply_highlights()
-  local group = vim.api.nvim_create_augroup("pretest_highlights", { clear = true })
+  local group = vim.api.nvim_create_augroup("pretest_ui", { clear = true })
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = apply_highlights,
