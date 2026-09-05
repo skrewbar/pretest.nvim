@@ -59,6 +59,8 @@ These are the defaults in pretest UI buffers. Override with [`ui_keys`](configur
 | `s` | Stop |
 | `q` | Close UI |
 
+`:q`, `:close`, and `<C-w>c` in any UI window also close the entire UI (Input/Expected edits are saved first).
+
 You can also switch cases by moving the cursor onto a case line in the header.
 
 **Input** and **Expected** are editable. Changes persist on `:w`, before a case switch, and before `run`. Header, Output, Runtime Error, and Stderr are read-only. Stderr is shown only when non-empty; Runtime Error only when the current verdict is RE.

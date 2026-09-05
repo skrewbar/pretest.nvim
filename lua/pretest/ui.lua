@@ -18,6 +18,7 @@ local M = {}
 ---@field bufs { header: integer, input: integer, expected: integer, output: integer, re: integer, stderr: integer }
 ---@field main_win integer|nil
 ---@field applying boolean
+---@field closing boolean
 ---@field compile_stderr string
 ---@field compile_status "stopped"|nil
 
@@ -433,6 +434,34 @@ function M.setup()
       vim.schedule(follow_visible_source)
     end,
   })
+  vim.api.nvim_create_autocmd("QuitPre", {
+    group = group,
+    callback = function()
+      if not session then
+        return
+      end
+      if not is_ui_buf(vim.api.nvim_get_current_buf()) then
+        return
+      end
+      M.flush_edits()
+      clear_ui_modified()
+    end,
+  })
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = group,
+    callback = function(ev)
+      if not session or session.applying or session.closing then
+        return
+      end
+      local closed = tonumber(ev.match)
+      for _, win in ipairs(session.winids) do
+        if win == closed then
+          M.close()
+          return
+        end
+      end
+    end,
+  })
 end
 
 ---@class pretest.HeaderLayout
@@ -728,9 +757,10 @@ function M.is_open()
 end
 
 function M.close()
-  if not session then
+  if not session or session.closing then
     return
   end
+  session.closing = true
   M.flush_edits()
   clear_ui_modified()
   for _, win in ipairs(session.winids) do
@@ -740,6 +770,7 @@ function M.close()
   end
   session.winids = {}
   session.main_win = nil
+  session.closing = false
 end
 
 function M.flush_edits()
@@ -1706,6 +1737,7 @@ function M.ensure_session(src_bufnr)
     },
     main_win = nil,
     applying = false,
+    closing = false,
     compile_stderr = "",
     compile_status = nil,
   }
