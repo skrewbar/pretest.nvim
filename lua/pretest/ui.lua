@@ -1464,7 +1464,11 @@ local function setup_buf_autocmds()
 end
 
 local function open_sidebar_column()
-  vim.cmd("botright vsplit")
+  if config.options.sidebar_position == "left" then
+    vim.cmd("topleft vsplit")
+  else
+    vim.cmd("botright vsplit")
+  end
   local root = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_width(root, resolved_sidebar_width())
   vim.api.nvim_win_set_buf(root, session.bufs.header)

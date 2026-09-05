@@ -10,6 +10,7 @@ Default config:
 require("pretest").setup({
   save_dir = nil, -- nil → {src_dir}/.pretest
   ui = "sidebar", -- or "float"
+  sidebar_position = "right", -- or "left"
   -- Size: (0, 1] is a fraction of editor columns/lines; > 1 is cells.
   sidebar_width = 40,
   sidebar_min_width = nil,

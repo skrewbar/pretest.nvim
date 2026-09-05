@@ -36,6 +36,7 @@ local M = {}
 ---@class pretest.Config
 ---@field save_dir string|nil
 ---@field ui "sidebar"|"float"
+---@field sidebar_position "left"|"right"
 ---@field sidebar_width pretest.Size
 ---@field sidebar_min_width pretest.Size|nil
 ---@field sidebar_max_width pretest.Size|nil
@@ -105,6 +106,7 @@ local M = {}
 local defaults = {
   save_dir = nil,
   ui = "sidebar",
+  sidebar_position = "right",
   sidebar_width = 40,
   sidebar_min_width = nil,
   sidebar_max_width = nil,
