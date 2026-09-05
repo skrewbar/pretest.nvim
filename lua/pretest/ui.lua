@@ -1785,21 +1785,19 @@ function M.toggle()
 end
 
 function M.toggle_layout()
-  local s = M.ensure_session()
-  if not s then
-    return
-  end
-  M.flush_edits()
-  local next_mode = s.ui_mode == "sidebar" and "float" or "sidebar"
+  local current_mode = session and session.ui_mode or get_preferred_ui()
+  local next_mode = current_mode == "sidebar" and "float" or "sidebar"
   set_preferred_ui(next_mode)
+  if session then
+    session.ui_mode = next_mode
+  end
   if M.is_open() then
+    M.flush_edits()
     M.close()
-    s.ui_mode = next_mode
     open_layout(next_mode)
     setup_buf_autocmds()
     render()
   else
-    s.ui_mode = next_mode
     util.notify("UI mode: " .. next_mode)
   end
 end
