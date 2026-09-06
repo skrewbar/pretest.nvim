@@ -41,6 +41,7 @@
 | `edit_name` | Prompt for the problem name |
 | `rename <name>` | Rename the source relative to its directory; rewrite `.prob` and the binary |
 | `move <path>` | Move the source relative to the cwd (a directory keeps the current basename); rewrite `.prob` and the binary |
+| `receive [mode]` | Competitive Companion (see below) |
 
 Neovim `:saveas` and an external `mv` do not reconnect `.prob` or the compile binary. Use `rename` / `move`.
 

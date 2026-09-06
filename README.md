@@ -4,6 +4,8 @@ Local competitive programming test runner for Neovim.
 
 Compile, run, and judge test cases next to your source file. Test data is stored in a single `.prob` JSON file per problem under `.pretest/` (or `save_dir`).
 
+![pretest.nvim demo](demo.gif)
+
 ## Features
 
 - Language runners via `languages` (C++ and Python by default)
@@ -11,6 +13,10 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 - Edit **Input** / **Expected** in the UI; edit name and limits via commands
 - Verdicts: AC, WA, RE, TLE, MLE, CE, Stopped
 - Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
+
+## Requirements
+
+- [Neovim](https://neovim.io/) 0.10+
 
 ## Install (lazy.nvim)
 
@@ -103,9 +109,9 @@ require("which-key").add({
 - [Configuration](docs/configuration.md)
 - [Commands](docs/commands.md)
 
-## `.prob` compatibility
+## `.prob` files
 
-Test data is stored as `.prob` JSON. Path layout and `save_dir` are documented in [Configuration](docs/configuration.md).
+Compatible with `.prob` files. Path layout and `save_dir` are documented in [Configuration](docs/configuration.md).
 
 ## Inspired by
 
