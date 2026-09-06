@@ -41,6 +41,8 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 }
 ```
 
+Other plugin managers and manual install: [docs/installation.md](docs/installation.md).
+
 ## Keymaps
 
 Suggested `<leader>t` mappings (also in the snippet above):
@@ -62,50 +64,55 @@ UI-buffer keys (`r`, `R`, `s`, …) are listed in [Commands](docs/commands.md).
 
 ### which-key.nvim
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads `desc` from the lazy.nvim `keys` table. To label the `<leader>t` group (and optionally add icons), call `wk.add` from your plugin `config`:
+[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads `desc` from the lazy.nvim `keys` table. For the `<leader>t` group label and icons, merge a `spec` into which-key's `opts`. Do not register icons from pretest: pretest is lazy-loaded, so `<leader>t` opens which-key before pretest loads and which-key falls back to auto icons from the `desc` text.
 
 ```lua
-config = function(_, opts)
-  require("pretest").setup(opts)
-  local ok, wk = pcall(require, "which-key")
-  if ok then
-    wk.add({
-      { "<leader>t", group = "Pretest", icon = "󰤑" },
-      { "<leader>tu", icon = "󰖷" },
-      { "<leader>tt", icon = "󰖯" },
-      { "<leader>tR", icon = "󰐊" },
-      { "<leader>tr", icon = "󰑮" },
-      { "<leader>tn", icon = "󰑮" },
-      { "<leader>tN", icon = "󰓦" },
-      { "<leader>ts", icon = "󰓛" },
-      { "<leader>ta", icon = "󰐕" },
-      { "<leader>te", icon = "󰏫" },
-      { "<leader>td", icon = "󰆴" },
-    })
-  end
-end,
+-- lua/plugins/pretest.lua
+return {
+  {
+    "skrewbar/pretest.nvim",
+    cmd = "Pretest",
+    keys = {
+      { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
+      { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
+      { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
+      { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
+      { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
+      { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
+      { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
+      { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
+      { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
+      { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
+    },
+    opts = {}, -- see docs/configuration.md
+  },
+  {
+    "folke/which-key.nvim",
+    optional = true,
+    opts = {
+      spec = {
+        { "<leader>t", group = "Pretest", icon = "󰤑" },
+        { "<leader>tu", icon = "󰖷" },
+        { "<leader>tt", icon = "󰖯" },
+        { "<leader>tR", icon = "󰐊" },
+        { "<leader>tr", icon = "󰑮" },
+        { "<leader>tn", icon = "󰑮" },
+        { "<leader>tN", icon = "󰓦" },
+        { "<leader>ts", icon = "󰓛" },
+        { "<leader>ta", icon = "󰐕" },
+        { "<leader>te", icon = "󰏫" },
+        { "<leader>td", icon = "󰆴" },
+      },
+    },
+  },
+}
 ```
 
-Without lazy.nvim `keys`, register the group and mappings directly:
-
-```lua
-require("which-key").add({
-  { "<leader>t", group = "Pretest" },
-  { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-  { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-  { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-  { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-  { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-  { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-  { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-  { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-  { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-  { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
-})
-```
+`optional = true` merges this block into an existing which-key install (for example LazyVim) and does nothing if which-key is not used.
 
 ## Docs
 
+- [Installation (other plugin managers)](docs/installation.md)
 - [Configuration](docs/configuration.md)
 - [Commands](docs/commands.md)
 
