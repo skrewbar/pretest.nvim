@@ -32,7 +32,7 @@ Compile, run, and judge test cases next to your source file. Test data is stored
     { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
     { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
     { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-    { "<leader>t<S-n>", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
+    { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
     { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
     { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
     { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
@@ -52,7 +52,7 @@ Suggested `<leader>t` mappings (also in the snippet above):
 | `<leader>tR` | `:Pretest run` | Run all testcases |
 | `<leader>tr` | `:Pretest run_current` | Run current testcase |
 | `<leader>tn` | `:Pretest run_current_no_compile` | Run current testcase (no compile) |
-| `<leader>t<S-n>` | `:Pretest run_no_compile` | Run all (no compile) |
+| `<leader>tN` | `:Pretest run_no_compile` | Run all (no compile) |
 | `<leader>ts` | `:Pretest stop` | Stop an in-flight compile/run |
 | `<leader>ta` | `:Pretest add` | Add testcase |
 | `<leader>te` | `:Pretest edit` | Edit/Focus |
@@ -76,7 +76,7 @@ config = function(_, opts)
       { "<leader>tR", icon = "󰐊" },
       { "<leader>tr", icon = "󰑮" },
       { "<leader>tn", icon = "󰑮" },
-      { "<leader>t<S-n>", icon = "󰓦" },
+      { "<leader>tN", icon = "󰓦" },
       { "<leader>ts", icon = "󰓛" },
       { "<leader>ta", icon = "󰐕" },
       { "<leader>te", icon = "󰏫" },
@@ -96,7 +96,7 @@ require("which-key").add({
   { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
   { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
   { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-  { "<leader>t<S-n>", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
+  { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
   { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
   { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
   { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
