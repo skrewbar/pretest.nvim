@@ -118,7 +118,7 @@ return {
 
 ## `.prob` files
 
-Compatible with `.prob` files. Path layout and `save_dir` are documented in [Configuration](docs/configuration.md).
+Compatible with [CPH](https://github.com/agrawal-d/cph) `.prob` files. Path layout and `save_dir` are documented in [Configuration](docs/configuration.md).
 
 ## Inspired by
 
