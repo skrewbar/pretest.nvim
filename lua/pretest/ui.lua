@@ -61,30 +61,12 @@ local function get_preferred_ui()
   return "sidebar"
 end
 
----@param mode "sidebar"|"float"
-local function set_preferred_ui(mode)
-  preferred_ui = mode
-end
-
 ---@return boolean
 local function get_show_hints()
   if preferred_show_hints ~= nil then
     return preferred_show_hints
   end
   return config.options.show_header_hints ~= false
-end
-
----@param show boolean
-local function set_show_hints(show)
-  preferred_show_hints = show
-end
-
-local function valid_win(win)
-  return win and vim.api.nvim_win_is_valid(win)
-end
-
-local function valid_buf(buf)
-  return buf and vim.api.nvim_buf_is_valid(buf)
 end
 
 ---@return integer
@@ -156,7 +138,7 @@ end
 ---Mark completely empty lines with an eol indicator (listchars eol would mark every line).
 ---@param buf integer
 local function apply_empty_eol_marks(buf)
-  if not valid_buf(buf) then
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
     return
   end
   vim.api.nvim_buf_clear_namespace(buf, EMPTY_EOL_NS, 0, -1)
@@ -215,7 +197,7 @@ local function clear_ui_modified()
     return
   end
   for _, buf in pairs(session.bufs) do
-    if valid_buf(buf) then
+    if buf and vim.api.nvim_buf_is_valid(buf) then
       vim.bo[buf].modified = false
     end
   end
@@ -224,7 +206,7 @@ end
 ---@param bufnr integer
 ---@return boolean
 local function is_ui_buf(bufnr)
-  if not valid_buf(bufnr) then
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return false
   end
   if vim.bo[bufnr].filetype == "pretest" then
@@ -749,7 +731,7 @@ function M.is_open()
     return false
   end
   for _, win in ipairs(session.winids) do
-    if valid_win(win) then
+    if win and vim.api.nvim_win_is_valid(win) then
       return true
     end
   end
@@ -764,7 +746,7 @@ function M.close()
   M.flush_edits()
   clear_ui_modified()
   for _, win in ipairs(session.winids) do
-    if valid_win(win) then
+    if win and vim.api.nvim_win_is_valid(win) then
       pcall(vim.api.nvim_win_close, win, true)
     end
   end
@@ -778,11 +760,11 @@ function M.flush_edits()
     return
   end
   local tc = session.problem.tests[session.index]
-  if valid_buf(session.bufs.input) then
+  if session.bufs.input and vim.api.nvim_buf_is_valid(session.bufs.input) then
     local lines = vim.api.nvim_buf_get_lines(session.bufs.input, 0, -1, false)
     tc.input = util.join_lines(lines)
   end
-  if valid_buf(session.bufs.expected) then
+  if session.bufs.expected and vim.api.nvim_buf_is_valid(session.bufs.expected) then
     local lines = vim.api.nvim_buf_get_lines(session.bufs.expected, 0, -1, false)
     tc.output = util.join_lines(lines)
   end
@@ -886,7 +868,7 @@ local function apply_sidebar_section_heights(extra_h)
   local total = 0
   local wins = {}
   for _, win in ipairs(session.winids) do
-    if valid_win(win) then
+    if win and vim.api.nvim_win_is_valid(win) then
       total = total + vim.api.nvim_win_get_height(win)
       local buf = vim.api.nvim_win_get_buf(win)
       if
@@ -933,7 +915,7 @@ local function find_win_for_buf(buf)
     return nil
   end
   for _, win in ipairs(session.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == buf then
+    if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
       return win
     end
   end
@@ -946,7 +928,7 @@ local function sync_header_cursor(win)
     return
   end
   win = win or vim.api.nvim_get_current_win()
-  if not valid_win(win) or vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
+  if not win or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= session.bufs.header then
     return
   end
   local layout = header_layout(#session.problem.tests)
@@ -994,7 +976,7 @@ local function focus_section(delta)
   local target = wins[next_idx]
   pcall(vim.api.nvim_set_current_win, target)
   sync_header_cursor(target)
-  if vim.fn.mode():find("i", 1, true) and valid_win(target) then
+  if vim.fn.mode():find("i", 1, true) and target and vim.api.nvim_win_is_valid(target) then
     local buf = vim.api.nvim_win_get_buf(target)
     if not vim.bo[buf].modifiable then
       vim.cmd("stopinsert")
@@ -1024,7 +1006,7 @@ end
 
 ---Rebuild header buffer (name, cases, wrapped hints, separator).
 local function write_header()
-  if not session or not valid_buf(session.bufs.header) then
+  if not session or not session.bufs.header or not vim.api.nvim_buf_is_valid(session.bufs.header) then
     return
   end
   local n = #session.problem.tests
@@ -1067,7 +1049,7 @@ local function prune_winids()
   end
   local kept = {}
   for _, win in ipairs(session.winids) do
-    if valid_win(win) then
+    if win and vim.api.nvim_win_is_valid(win) then
       table.insert(kept, win)
     end
   end
@@ -1151,7 +1133,7 @@ local function ensure_sidebar_extra_win(key, height)
   pcall(vim.api.nvim_win_set_height, win, height)
   set_winbar(win, EXTRA_TITLES[key])
   table.insert(session.winids, win)
-  if valid_win(prev) then
+  if prev and vim.api.nvim_win_is_valid(prev) then
     pcall(vim.api.nvim_set_current_win, prev)
   end
   return win
@@ -1279,7 +1261,7 @@ local function render()
 
   if session.ui_mode == "sidebar" then
     for _, win in ipairs(session.winids) do
-      if valid_win(win) then
+      if win and vim.api.nvim_win_is_valid(win) then
         local buf = vim.api.nvim_win_get_buf(win)
         if buf == session.bufs.input then
           set_winbar(win, "Input")
@@ -1316,7 +1298,8 @@ local function render()
   else
     apply_float_layout(re_lines, err_lines)
     for _, win in ipairs(session.winids) do
-      if valid_win(win) then
+      if win and vim.api.nvim_win_is_valid(win) then
+        -- scope=local: winbar is global-or-local; :set would leak into new floats.
         set_winbar(win, "")
       end
     end
@@ -1642,7 +1625,7 @@ local function is_transient_buf(bufnr)
     return true
   end
   local win = vim.api.nvim_get_current_win()
-  if valid_win(win) then
+  if win and vim.api.nvim_win_is_valid(win) then
     local cfg = vim.api.nvim_win_get_config(win)
     if cfg.relative and cfg.relative ~= "" then
       return true
@@ -1757,7 +1740,7 @@ function M.show()
   end
   if M.is_open() then
     for _, win in ipairs(s.winids) do
-      if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
+      if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
         vim.api.nvim_set_current_win(win)
         return
       end
@@ -1769,7 +1752,7 @@ function M.show()
   setup_buf_autocmds()
   render()
   for _, win in ipairs(s.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
+    if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
       break
     end
@@ -1787,7 +1770,7 @@ end
 function M.toggle_layout()
   local current_mode = session and session.ui_mode or get_preferred_ui()
   local next_mode = current_mode == "sidebar" and "float" or "sidebar"
-  set_preferred_ui(next_mode)
+  preferred_ui = next_mode
   if session then
     session.ui_mode = next_mode
   end
@@ -1803,7 +1786,7 @@ function M.toggle_layout()
 end
 
 function M.toggle_hints()
-  set_show_hints(not get_show_hints())
+  preferred_show_hints = not get_show_hints()
   if M.is_open() then
     render()
   end
@@ -1854,7 +1837,7 @@ function M.goto_case(index)
   s.index = index
   render()
   for _, win in ipairs(s.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
+    if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
       break
     end
@@ -2031,7 +2014,7 @@ function M.run(indices, do_compile)
   if not check_lang_config(s.src_path, s.filetype) then
     return
   end
-  if vim.api.nvim_buf_is_valid(s.src_bufnr) and vim.bo[s.src_bufnr].modified then
+  if s.src_bufnr and vim.api.nvim_buf_is_valid(s.src_bufnr) and vim.bo[s.src_bufnr].modified then
     vim.api.nvim_buf_call(s.src_bufnr, function()
       vim.cmd("write")
     end)
@@ -2122,18 +2105,12 @@ function M.stop()
   end
 end
 
-function M.refresh()
-  if session and M.is_open() then
-    render()
-  end
-end
-
 local function focus_input_win()
   if not session then
     return
   end
   for _, win in ipairs(session.winids) do
-    if valid_win(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
+    if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == session.bufs.input then
       vim.api.nvim_set_current_win(win)
       return
     end
@@ -2166,7 +2143,7 @@ local function open_source(src_path)
     return
   end
 
-  if vim.api.nvim_buf_is_valid(cur) and vim.bo[cur].buftype == "" then
+  if cur and vim.api.nvim_buf_is_valid(cur) and vim.bo[cur].buftype == "" then
     vim.bo[cur].buflisted = true
   end
 
@@ -2223,7 +2200,7 @@ function M.apply_problem(src_path, problem)
 
   local function focus_non_ui_win()
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if valid_win(win) and not is_ui_buf(vim.api.nvim_win_get_buf(win)) then
+      if win and vim.api.nvim_win_is_valid(win) and not is_ui_buf(vim.api.nvim_win_get_buf(win)) then
         vim.api.nvim_set_current_win(win)
         return
       end
@@ -2267,7 +2244,7 @@ local function wipe_leftover_buf(bufnr, old_name)
     return
   end
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
-    if b ~= bufnr and vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == old_name then
+    if b ~= bufnr and b and vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b) == old_name then
       pcall(vim.api.nvim_buf_delete, b, { force = true })
     end
   end
@@ -2342,7 +2319,7 @@ function M.move_source(dest, opts)
     M.flush_edits()
   end
 
-  if valid_buf(bufnr) then
+  if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
     local needs_write = vim.bo[bufnr].modified or vim.fn.filereadable(old_src) == 0
     if needs_write then
       local ok, err = pcall(function()
@@ -2381,7 +2358,7 @@ function M.move_source(dest, opts)
     return
   end
 
-  if valid_buf(bufnr) then
+  if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
     local old_name = vim.api.nvim_buf_get_name(bufnr)
     pcall(vim.api.nvim_buf_set_name, bufnr, new_src)
     wipe_leftover_buf(bufnr, old_name)
@@ -2400,7 +2377,7 @@ function M.move_source(dest, opts)
       parked[old_src] = nil
     end
     live_session.src_path = new_src
-    if valid_buf(bufnr) then
+    if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
       live_session.src_bufnr = bufnr
     end
     live_session.filetype = new_ft

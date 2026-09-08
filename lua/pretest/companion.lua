@@ -532,7 +532,7 @@ function M.start(mode)
   local bufnr = nil
   if mode == "current" then
     bufnr = vim.api.nvim_get_current_buf()
-    local path, ft = util.source_from_buf(bufnr)
+    local path, ft = source_from_bufnr(bufnr)
     if not path then
       util.notify("open a source file first", vim.log.levels.ERROR)
       return false
