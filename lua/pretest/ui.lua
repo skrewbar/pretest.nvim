@@ -1924,13 +1924,8 @@ function M.edit_name()
   end
   local cur = s.problem.name or "Pretest"
 
-  vim.ui.input({ prompt = "Problem name: ", default = cur }, function(name_s)
-    if name_s == nil then
-      return
-    end
-    local name = vim.trim(name_s:gsub("%s+", " "))
-    if name == "" then
-      util.notify("invalid problem name", vim.log.levels.ERROR)
+  vim.ui.input({ prompt = "Problem name: ", default = cur }, function(name)
+    if name == nil then
       return
     end
     s.problem.name = name
