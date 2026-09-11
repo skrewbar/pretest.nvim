@@ -147,7 +147,7 @@ local function apply_empty_eol_marks(buf)
     if line == "" then
       -- overlay at col 0: eol virt_text on empty lines sits one column in and looks indented.
       vim.api.nvim_buf_set_extmark(buf, EMPTY_EOL_NS, i - 1, 0, {
-        virt_text = { { "¬", "NonText" } },
+        virt_text = { { "↵", "NonText" } },
         virt_text_pos = "overlay",
       })
     end
