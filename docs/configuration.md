@@ -106,7 +106,7 @@ ui_keys = {
 
 ## Languages
 
-`$src` and `$bin` in `compile`/`run` `exec` and `args` are pretest placeholders. An `exec` string or argv element that is exactly `$src` or `$bin` expands to the absolute source path or output binary path; substrings are not expanded. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the executable string (`exec`) or argv table (`args`). Function results are not expanded. Languages with a `compile` step write the binary as `{stem}.out` (plus a short hash when `save_dir` is set).
+`$src` and `$bin` in `compile`/`run` `exec` and `args` are pretest placeholders. An `exec` string or argv element that is exactly `$src` or `$bin` expands to the absolute source path or output binary path; substrings are not expanded. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the executable string (`exec`) or argv table (`args`). Function results are not expanded. `$bin` is `{stem}.out` (plus a short hash when `save_dir` is set). Languages with a `compile` step write the binary there.
 
 Memory limit is judged from **peak RSS** after the case ends. The process is not killed early for memory; TLE still applies. Interpreter overhead (Python) counts toward RSS. Set the limit to `0` to disable.
 

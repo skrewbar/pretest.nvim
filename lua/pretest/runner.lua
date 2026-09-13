@@ -375,9 +375,8 @@ local function eval_args(field, ctx)
 end
 
 ---@param src_path string
----@param ft string
 ---@return string
-function M.bin_path_for(src_path, ft)
+function M.bin_path_for(src_path)
   local dir = util.artifact_dir(src_path)
   vim.fn.mkdir(dir, "p")
   local stem = vim.fn.fnamemodify(src_path, ":t:r")
@@ -389,26 +388,17 @@ function M.bin_path_for(src_path, ft)
   else
     name = stem
   end
-  local lang = config.language(ft)
-  if lang and lang.compile then
-    return vim.fs.joinpath(dir, name .. ".out")
-  end
-  return vim.fs.joinpath(dir, name)
+  return vim.fs.joinpath(dir, name .. ".out")
 end
 
 ---Rename the compile binary when its path changes with the source. No-op if
 ---the old binary is missing or the paths are identical.
 ---@param old_src string
 ---@param new_src string
----@param old_ft string
----@param new_ft string|nil # empty or nil → use old_ft
 ---@return boolean
-function M.relocate_bin(old_src, new_src, old_ft, new_ft)
-  if new_ft == nil or new_ft == "" then
-    new_ft = old_ft
-  end
-  local old_bin = M.bin_path_for(old_src, old_ft)
-  local new_bin = M.bin_path_for(new_src, new_ft)
+function M.relocate_bin(old_src, new_src)
+  local old_bin = M.bin_path_for(old_src)
+  local new_bin = M.bin_path_for(new_src)
   if old_bin == new_bin then
     return true
   end
@@ -499,7 +489,7 @@ function M.compile(src_path, ft, on_done)
 
   local ctx = {
     src_path = util.abspath(src_path),
-    bin_path = M.bin_path_for(src_path, ft),
+    bin_path = M.bin_path_for(src_path),
   }
   local exec = eval_exec(lang.compile.exec, ctx)
   if type(exec) ~= "string" then
@@ -544,7 +534,7 @@ function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb
   local lang = config.language(ft) ---@cast lang pretest.LangConfig
   local ctx = {
     src_path = util.abspath(src_path),
-    bin_path = M.bin_path_for(src_path, ft),
+    bin_path = M.bin_path_for(src_path),
   }
   local exec = eval_exec(lang.run.exec, ctx)
   local args = eval_args(lang.run.args, ctx) or {}

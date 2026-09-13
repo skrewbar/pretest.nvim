@@ -1978,7 +1978,7 @@ local function check_lang_config(src_path, ft)
   if type(exec) == "function" then
     exec = exec({
       src_path = util.abspath(src_path),
-      bin_path = runner.bin_path_for(src_path, ft),
+      bin_path = runner.bin_path_for(src_path),
     })
   end
   if type(exec) ~= "string" then
@@ -2364,7 +2364,7 @@ function M.move_source(dest, opts)
     problem = live_session.problem
   end
   local relocated, new_ppath, err = prob.relocate(old_src, new_src, problem)
-  runner.relocate_bin(old_src, new_src, ft, new_ft)
+  runner.relocate_bin(old_src, new_src)
 
   if live_session then
     if parked[old_src] then
