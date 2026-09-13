@@ -1,41 +1,39 @@
+**English** | [한국어](ko/configuration.md)
+
 # Configuration
 
-All keys are optional. `languages` is deep-merged, so you can override just `compile.exec`. Keys are Neovim filetypes; add an entry to support another language. Optional `extensions` maps extra suffixes onto that filetype.
+Pass a table to `require("pretest").setup()` (or `opts` with lazy.nvim). Every key is optional and is deep-merged over the defaults, so omitted keys keep their default values. Lists (`args`, multi-key `ui_keys` values, `extensions`) are replaced as a whole rather than merged, so write the complete list when you change one.
 
-With [lazy.nvim](https://github.com/folke/lazy.nvim), pass the same table as `opts`.
-
-Default config:
+## Defaults
 
 ```lua
 require("pretest").setup({
-  save_dir = nil, -- nil → {src_dir}/.pretest
-  ui = "sidebar", -- or "float"
-  sidebar_position = "right", -- or "left"
-  -- Size: (0, 1] is a fraction of editor columns/lines; > 1 is cells.
-  sidebar_width = 40,
+  -- Where .prob files and binaries go. nil → "{src_dir}/.pretest"
+  save_dir = nil,
+
+  -- Layout ------------------------------------------------------------
+  ui = "sidebar", -- "sidebar" | "float"
+  sidebar_position = "right", -- "left" | "right"
+  -- Size: a fraction when less than 1, cells when greater than 1
+  sidebar_width = 40, -- 40 cells
   sidebar_min_width = nil,
   sidebar_max_width = nil,
-  float_width = 0.6,
+  float_width = 0.6, -- 60% of the width
   float_height = 0.8,
   float_min_width = 30,
   float_max_width = nil,
   float_min_height = 16,
   float_max_height = nil,
+  -- Relative section heights
+  sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  float_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  show_header_hints = true,
+
+  -- Default limits -----------------------------------------------------
   default_time_limit = 3000, -- ms
-  default_memory_limit = 1024, -- MB; peak RSS over this is MLE (0 disables)
-  show_header_hints = true, -- starting value for :Pretest toggle_hints
-  sidebar_sections = { -- relative heights
-    header = 1,
-    input = 1,
-    expected = 1,
-    output = 1,
-  },
-  float_sections = {
-    header = 1,
-    input = 1,
-    expected = 1,
-    output = 1,
-  },
+  default_memory_limit = 1024, -- MB; 0 disables MLE
+
+  -- pretest UI keys ----------------------------------------------------
   ui_keys = {
     next_case = "<C-n>",
     prev_case = "<C-p>",
@@ -45,114 +43,222 @@ require("pretest").setup({
     stop = "s",
     run_all = "R",
     run_one = "r",
-    -- <C-R>/<C-r> are identical in terminals; use Ctrl-Shift-r for "all".
     run_all_no_compile = "<C-S-r>",
     run_one_no_compile = "<C-r>",
   },
+
+  -- Languages ----------------------------------------------------------
   languages = {
     cpp = {
       extensions = { "cpp", "cc", "cxx" },
-      compile = {
-        exec = "g++", -- e.g. "g++-16" or "clang++"
-        args = { "-o", "$bin", "$src" },
-      },
-      run = {
-        exec = "$bin",
-        args = {},
-      },
+      compile = { exec = "g++", args = { "-o", "$bin", "$src" } },
+      run = { exec = "$bin", args = {} },
     },
     python = {
       extensions = { "py" },
-      run = {
-        exec = "python3",
-        args = { "$src" },
-      },
+      run = { exec = "python3", args = { "$src" } },
     },
   },
+
+  -- Competitive Companion ----------------------------------------------
   companion = {
-    port = 27121, -- Competitive Companion (same default as CPH)
+    port = 27121,
     listen_on_setup = false,
     extension = "cpp",
-    template = nil, -- path, or { cpp = "...", py = "..." }
-    problem_path = "{cwd}/{problem}.{ext}", -- G_Castle_Defense.cpp
+    template = nil, -- "path/to/template.cpp" or { cpp = "...", py = "..." }
+    problem_path = "{cwd}/{problem}.{ext}",
     contest_dir = "{cwd}",
-    contest_problem_path = "{file}.{ext}", -- A.cpp (letter / number prefix)
-    prompt_path = true, -- confirm path / contest directory
-    open = true, -- :edit received source and show UI
-    replace_testcases = true, -- false → Keep/Replace prompt
+    contest_problem_path = "{file}.{ext}",
+    prompt_path = true,
+    open = true, -- open the buffer after receive when true
+    replace_testcases = true,
   },
 })
 ```
 
-## UI size
+## `save_dir`
 
-UI sizes (`sidebar_width`, `float_width`, `float_height`, and each `min_*` / `max_*`) are numbers. Values in `(0, 1]` are fractions of editor columns (width) or lines (height); values `> 1` are cells. Min/max clamp after the base size is resolved. Omit a min/max key (or leave it `nil`) to skip that bound.
+`nil` (default) keeps artifacts next to each source in `{src_dir}/.pretest/`. A path (`~` and environment variables are expanded) stores every `.prob` file and binary at that location. See [Usage → Where files are stored](usage.md#where-files-are-stored) for the file-name rules.
 
-## UI keys
+## Layout
 
-UI-buffer maps (not the `<leader>t` suggested keys). Each action is a string, a list, `{ "<Tab>", modes = "n" }`, or `false` to unbind. Named actions replace the whole value; omitted actions keep the default.
+### `ui`, `sidebar_position`
 
-Defaults: `next_case` / `prev_case` / `next_section` / `prev_section` use Normal and Insert; the rest are Normal only. Set `modes` on a binding to override, e.g. `{ "<Tab>", modes = "n" }` if Insert should type a tab.
+Initial layout and which side the sidebar opens on. `:Pretest toggle_layout` changes the layout for the current Neovim session.
+
+### Sizes
+
+`sidebar_width`, `float_width`, `float_height`, and the `*_min_*` / `*_max_*` values are numbers. Values in `(0, 1]` are fractions of the editor width (for width options) or height (for height options); values greater than `1` are cells. The base size is resolved first, then clamped by min/max, then to the editor. Leave a bound `nil` to skip it.
+
+```lua
+sidebar_width = 0.3, sidebar_min_width = 44, -- 30% of columns, never narrower than 44
+float_height = 40,                            -- exactly 40 lines (including borders)
+```
+
+The sidebar width is fixed (`winfixwidth`) so other splits do not squeeze it. `float_height` is the total height of the floating stack including borders.
+
+### `sidebar_sections`, `float_sections`
+
+Relative weights for **header**, **Input**, **Expected**, and **Output**. Each section gets at least 3 lines; in the sidebar the header grows to fit the testcase list when there is room. **Runtime Error** and **Stderr** take fixed space only while shown (up to 4 and 8 lines respectively).
+
+```lua
+sidebar_sections = { header = 1, input = 2, expected = 2, output = 3 },
+```
+
+### `show_header_hints`
+
+Whether the header shows key hints. `:Pretest toggle_hints` toggles this for the current session only. Hints are rendered from your actual `ui_keys`, so they stay accurate after remapping.
+
+## `ui_keys`
+
+Keys mapped only inside the pretest UI (buffer-local).
+
+| Value | Meaning |
+|-------|---------|
+| `"<C-j>"` | One key, default modes |
+| `{ "<C-j>", modes = "n" }` | One key with explicit modes (`"n"`, `"i"`, or a list) |
+| `{ "q", "<Esc>" }` | Several keys |
+| `{ { "<Tab>", modes = "n" }, "<C-l>" }` | Mixed |
+| `false` | Unbind |
+
+Default modes are **Normal/Insert** for `next_case`, `prev_case`, `next_section`, `prev_section`, and Normal only for the rest. Setting an action replaces its default entirely; omitted actions keep theirs.
 
 ```lua
 ui_keys = {
-  next_section = "<C-j>", -- replaces Tab; Insert+Normal
+  next_section = { "<Tab>", modes = "n" }, -- unbind <Tab> in Insert mode
+  prev_section = { "<S-Tab>", modes = "n" },
   close = { "q", "<Esc>" },
   run_all_no_compile = false,
+},
+```
+
+`:w` (save Input/Expected), header cursor selection, and `:q` closing the UI are built-in and not part of `ui_keys`.
+
+> If your terminal emulator cannot distinguish `<C-r>` from `<C-S-r>`, change those keys.
+
+## `languages`
+
+`languages` maps a Neovim **filetype** (the value of `:set filetype?`, e.g. `cpp`, `python`, `rust`) to how to build and run it:
+
+```lua
+languages = {
+  <filetype> = {
+    extensions = { "ext", ... }, -- (optional) extra suffixes to treat as this filetype
+    compile = {                  -- (optional) omit for interpreted languages
+      exec = "compiler",         -- string or function(ctx) -> string
+      args = { ... },            -- string list or function(ctx) -> string[]
+    },
+    run = {
+      exec = "program",          -- required
+      args = { ... },
+    },
+  },
 }
 ```
 
-`:w` still saves Input/Expected and is not in `ui_keys`. Header hints follow the configured keys.
+- `exec` is spawned directly, not through a shell. Quoting, globbing, `~`, and `&&` do not work.
+- In `exec` and each element of `args`, `$src` expands to the absolute source path and `$bin` to the binary path. Placeholders embedded in a longer string (e.g. `"--out=$bin"`) are **not** expanded. Use a function when you need that.
+- Functions receive `ctx = { src_path = "...", bin_path = "..." }` and return a string (`exec`) or a list (`args`). The return value is used as is.
+- `bin_path` / `$bin` is only a suggestion; you can write elsewhere.
+- Both compile and run use the source file's directory as the working directory.
 
-## Languages
+### Which language a buffer uses
 
-`$src` and `$bin` in `compile`/`run` `exec` and `args` are pretest placeholders. An `exec` string or argv element that is exactly `$src` or `$bin` expands to the absolute source path or output binary path; substrings are not expanded. You can pass a function instead; it receives `{ src_path, bin_path }` and should return the executable string (`exec`) or argv table (`args`). Function results are not expanded. `$bin` is `{stem}.out` (plus a short hash when `save_dir` is set). Languages with a `compile` step write the binary there.
+pretest first checks the buffer's `filetype`. If that is not a key in `languages`, it tries `vim.filetype.match` on the path, then the `extensions` lists, and finally a key equal to the extension. Files created by Competitive Companion use `companion.extension`, so that extension must map to a configured language for the UI to open automatically.
 
-Memory limit is judged from **peak RSS** after the case ends. The process is not killed early for memory; TLE still applies. Interpreter overhead (Python) counts toward RSS. Set the limit to `0` to disable.
+### Examples
 
-Peak RSS is read from OS builtins (no extra packages, compiler, or `gtime`):
-
-- **Linux:** GNU `/usr/bin/time -f %M -o <file>` (KiB). If that binary is missing or not GNU, `/proc/<pid>/status` `VmHWM` while the process is alive.
-- **macOS:** `/usr/bin/time -l`; `maximum resident set size` (bytes → KiB). BSD rusage is stripped from stderr.
-- **Windows:** `PeakWorkingSet64` via PowerShell before the libuv process handle is closed. If `Get-Process` only lists running processes, pretest attaches while the process is alive and reads the same counter after exit.
-
-Header example: `MLE  21MB`.
-
-On RE, a **Runtime Error** section shows the signal, exit code, or exception (e.g. `SIGSEGV`). Process stderr is unchanged in **Stderr**. To get sanitizer traces, add flags yourself:
+Override just the compiler and flags for C++ (the rest of the entry is kept):
 
 ```lua
-args = { "-o", "$bin", "$src", "-fsanitize=address,undefined" },
+languages = {
+  cpp = {
+    compile = {
+      exec = "clang++",
+      args = { "-std=c++20", "-O2", "-Wall", "-fsanitize=address,undefined", "-o", "$bin", "$src" },
+    },
+  },
+},
 ```
 
-## Artifact directory
+Use PyPy instead of CPython:
 
-`artifact_dir` is `save_dir` when set, otherwise `{src_dir}/.pretest`. `.prob` names use the full source basename (with extension) plus MD5 of the absolute source path.
+```lua
+languages = { python = { run = { exec = "pypy3" } } },
+```
 
-```text
-# under .pretest next to the source (default)
-{src_dir}/.pretest/.{basename}_{md5(srcPath)}.prob
-{src_dir}/.pretest/{stem}.out
+Add C and Rust:
 
-# when save_dir is set (short hash on binaries avoids collisions)
-{save_dir}/.{basename}_{md5(srcPath)}.prob
-{save_dir}/{stem}_{md5(srcPath)[1:8]}.out
+```lua
+languages = {
+  c = {
+    extensions = { "c" },
+    compile = { exec = "gcc", args = { "-O2", "-o", "$bin", "$src" } },
+    run = { exec = "$bin" },
+  },
+  rust = {
+    extensions = { "rs" },
+    compile = { exec = "rustc", args = { "-O", "-o", "$bin", "$src" } },
+    run = { exec = "$bin" },
+  },
+},
+```
+
+Java. Functions are used because the class name comes from the file name and the class file is written to a directory:
+
+```lua
+languages = {
+  java = {
+    extensions = { "java" },
+    compile = {
+      exec = "javac",
+      args = function(ctx)
+        return { "-d", vim.fs.dirname(ctx.bin_path), ctx.src_path }
+      end,
+    },
+    run = {
+      exec = "java",
+      args = function(ctx)
+        return { "-cp", vim.fs.dirname(ctx.bin_path), vim.fn.fnamemodify(ctx.src_path, ":t:r") }
+      end,
+    },
+  },
+},
+```
+
+Run through a shell when you need shell features, for example a larger stack on Linux:
+
+```lua
+run = {
+  exec = "sh",
+  args = function(ctx)
+    return { "-c", "ulimit -s 262144 && exec " .. vim.fn.shellescape(ctx.bin_path) }
+  end,
+},
 ```
 
 ## Competitive Companion
 
-Install the [Competitive Companion](https://github.com/jmerle/competitive-companion) browser extension. pretest listens on `127.0.0.1:27121` by default (already in Companion's port list), so no extra Companion config is required.
+The `companion` table is documented on its own page: [Competitive Companion](competitive-companion.md).
 
-If bind fails, another process is using the port (CPH, CompetiTest, or another Neovim). Change `companion.port` or stop the other listener.
+## Highlight groups
 
-Received source names come from the problem title, not Java `taskClass`:
+All groups are defined with `default = true` and can be overridden in your colorscheme or with `vim.api.nvim_set_hl(0, "PretestAC", { ... })`.
 
-- **problem:** `{problem}` → `G_Castle_Defense.cpp` (`G. Castle Defense`)
-- **contest:** `{file}` → `A.cpp`, `B.cpp` (letter/number prefix; full slug if there is none)
+| Group | Default link | Used for |
+|-------|--------------|----------|
+| `PretestAC` | `DiagnosticOk` | `AC` verdicts and an all-green summary |
+| `PretestWA` | `DiagnosticError` | `WA` |
+| `PretestRE` | `DiagnosticError` | `RE` |
+| `PretestCE` | `DiagnosticError` | `CE` |
+| `PretestTLE` | `DiagnosticWarn` | `TLE` |
+| `PretestMLE` | `DiagnosticWarn` | `MLE` |
+| `PretestStopped` | `DiagnosticWarn` | `Stopped` |
+| `PretestRunning` | `DiagnosticInfo` | `Running`, `Compiling` |
+| `PretestPending` | `Comment` | Cases without a result |
+| `PretestCurrent` | `Title` | `[n]` marker of the selected case |
+| `PretestKey` | `Special` | Key names in header hints |
+| `PretestHint` | `Comment` | Hint labels |
+| `PretestSep` | `FloatBorder` foreground | Header separator line and `│` |
 
-`{cwd}` is Neovim's current working directory. Placeholders: `{cwd}`, `{home}`, `{name}`, `{index}`, `{slug}`, `{problem}`, `{file}`, `{task_class}`, `{ext}`, `{group}`, `{judge}`, `{contest}`. Paths may also be a function `(task, ext) -> string`.
-
-`.prob` files still follow the usual `artifact_dir` rules next to each source.
-
-Receive overwrites the stored problem name and limits from Companion. Testcases follow `replace_testcases` (Keep/Replace prompt when `false`).
-
-See [Commands](commands.md) for `:Pretest receive`.
+pretest buffers have `filetype=pretest` and names of the form `pretest://input#<bufnr>`, which you can use to exclude them from statuslines, autoformatters, or completion plugins.

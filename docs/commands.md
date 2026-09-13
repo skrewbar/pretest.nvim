@@ -1,84 +1,108 @@
+**English** | [한국어](ko/commands.md)
+
 # Commands
+
+Every pretest action is available as `:Pretest <subcommand> [argument]`.
 
 ```vim
 :Pretest toggle
 :Pretest toggle_layout
 :Pretest toggle_hints
-:Pretest run [index...]
+:Pretest run [index ...]
 :Pretest run_current
+:Pretest run_no_compile [index ...]
 :Pretest run_current_no_compile
-:Pretest run_no_compile [index...]
 :Pretest stop
 :Pretest add
 :Pretest edit [index]
 :Pretest delete [index]
-:Pretest edit_limits
 :Pretest edit_name
+:Pretest edit_limits
 :Pretest rename <name>
 :Pretest move <path>
-:Pretest receive
-:Pretest receive problem
-:Pretest receive contest
-:Pretest receive persistently
-:Pretest receive stop
-:Pretest receive status
+:Pretest receive [problem | contest | persistently | stop | status]
 ```
+
+Commands that act on a problem (`run*`, `add`, `edit*`, `delete`, `rename`, `move`, `receive`) need a supported *source file*. Run them from a buffer whose filetype is configured under [`languages`](configuration.md#languages), or from a pretest UI window while a session is open.
+
+## UI
 
 | Command | Description |
 |---------|-------------|
-| `toggle` | Open or close the UI |
-| `toggle_layout` | Switch between sidebar and float |
-| `toggle_hints` | Show or hide header key hints |
-| `run [index...]` | Compile (if needed) and run all cases, or the given indices |
-| `run_current` | Compile (if needed) and run the current case |
-| `run_current_no_compile` | Run the current case without compiling |
-| `run_no_compile [index...]` | Run without compiling |
-| `stop` | Stop an in-flight compile/run |
-| `add` | Add a testcase |
-| `edit [index]` | Focus the UI (and jump to `index` if given) |
-| `delete [index]` | Delete the current case, or `index` |
-| `edit_limits` | Prompt for time/memory limits |
-| `edit_name` | Prompt for the problem name |
-| `rename <name>` | Rename the source relative to its directory; rewrite `.prob` and the binary |
-| `move <path>` | Move the source relative to the cwd (a directory keeps the current basename); rewrite `.prob` and the binary |
-| `receive [mode]` | Competitive Companion (see below) |
+| `toggle` | Open the UI for the current source file, or close it if it is open. Opening focuses **Input**. |
+| `toggle_layout` | Switch between `sidebar` and `float`. Works while the UI is closed (applies on the next open) and is remembered for the Neovim session. |
+| `toggle_hints` | Show or hide the key-hint lines in the UI header. Remembered for the session; the initial value is `show_header_hints`. |
 
-Neovim `:saveas` and an external `mv` do not reconnect `.prob` or the compile binary. Use `rename` / `move`.
+## Running
 
-## UI keys
+| Command | Description |
+|---------|-------------|
+| `run [index ...]` | Compile if the language has a `compile` step, then run every testcase or only the given 1-based indices (`:Pretest run 2 4`). |
+| `run_current` | Compile if needed, then run the selected testcase. |
+| `run_no_compile [index ...]` | Like `run`, but skip compilation and use the existing binary. |
+| `run_current_no_compile` | `run_current` without compilation. |
+| `stop` | Kill the running compiler or program. The current case becomes `Stopped` and queued cases are not started. When stopped during compilation, `Stopped` is shown next to the testcase count in the header. |
 
-These are the defaults in pretest UI buffers. Override with [`ui_keys`](configuration.md#ui-keys). `<C-n>` / `<C-p>` and `<Tab>` / `<S-Tab>` also work in Insert mode.
+Run commands save the source buffer first if it has unsaved changes, and open the UI if it is closed.
 
-| Key | Action |
-|-----|--------|
-| `<C-n>` / `<C-p>` | Next / previous testcase |
-| `<Tab>` / `<S-Tab>` | Next / previous section |
-| `r` | Run current case |
-| `R` | Run all cases |
-| `<C-r>` | Run current case (no compile) |
-| `<C-S-r>` | Run all cases (no compile) |
-| `s` | Stop |
-| `q` | Close UI |
+## Testcases
 
-`:q`, `:close`, and `<C-w>c` in any UI window also close the entire UI (Input/Expected edits are saved first).
+| Command | Description |
+|---------|-------------|
+| `add` | Append an empty testcase to the end of the list and select it. Opens the UI if it is closed. |
+| `edit [index]` | Open the UI and focus **Input**. With `index`, select that testcase. |
+| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`. Clears all results. |
+| `edit_name` | Prompt for a new problem name. |
+| `edit_limits` | Prompt for the time limit (ms) and the memory limit (MB). A memory limit of `0` disables the memory check. |
 
-You can also switch cases by moving the cursor onto a case line in the header.
+Input and Expected are saved automatically before a case switch, a run, closing, and exit.
 
-**Input** and **Expected** are editable. Changes persist on `:w`, before a case switch, and before `run`. Header, Output, Runtime Error, and Stderr are read-only. Stderr is shown only when non-empty; Runtime Error only when the current verdict is RE.
+Input and Expected are edited directly in their windows and can be saved with `:w`.
+
+## Source file
+
+| Command | Description |
+|---------|-------------|
+| `rename <name>` | Rename the source file. Relative paths are resolved against the source's directory. |
+| `move <path>` | Move the source file. Relative paths are resolved against Neovim's cwd. A path that ends in `/` or names an existing directory keeps the current file name. |
+
+Both commands save the buffer, rename the file and buffer, and move the `.prob` file and compiled binary to match the new path.
+
+The command does nothing if a file already exists at the destination, if the corresponding `.prob` already exists, or if the extension is not a configured language.
 
 ## Competitive Companion
 
-Install the [Competitive Companion](https://github.com/jmerle/competitive-companion) browser extension, then:
+| Command | Description |
+|---------|-------------|
+| `receive` | Receive one problem and overwrite the **current file's** `.prob` with its testcases, name, and limits. |
+| `receive problem` | Receive one problem, create a new source file for it (from `companion.template` if set), and open it. |
+| `receive contest` | Receive a whole contest and create one source file per problem under `companion.contest_dir`. |
+| `receive persistently` | Keep receiving. Batches with more than one task are handled as contests; a single task prompts for *This file* / *Problem*. |
+| `receive stop` | Stop receiving. |
+| `receive status` | Report whether pretest is receiving, in which mode, and on which port. |
 
-```vim
-:Pretest receive                " write tests and limits into the current source's .prob (once)
-:Pretest receive problem        " create source + .prob, then open it (once)
-:Pretest receive contest        " wait for a full contest batch, create files in cwd (once)
-:Pretest receive persistently   " keep listening; contest if batch size > 1, else ask
-:Pretest receive stop
-:Pretest receive status
-```
+See [Competitive Companion](competitive-companion.md) for details.
 
-Click Companion's green plus on a problem or contest page.
+## UI keys
 
-Receive overwrites the stored problem name and limits from Companion. Testcases follow `replace_testcases` (Keep/Replace prompt when `false`). Path templates and port live in [Configuration](configuration.md).
+Default keys active in the pretest UI. All of them can be changed through [`ui_keys`](configuration.md#ui_keys).
+
+| Key | Modes | Action |
+|-----|-------|--------|
+| `<C-n>` / `<C-p>` | Normal, Insert | Next / previous testcase |
+| `<Tab>` / `<S-Tab>` | Normal, Insert | Next / previous section |
+| `R` | Normal | Run all testcases (`run`) |
+| `r` | Normal | Run the current testcase (`run_current`) |
+| `<C-S-r>` | Normal | Run all without compiling (`run_no_compile`) |
+| `<C-r>` | Normal | Run the current case without compiling (`run_current_no_compile`) |
+| `s` | Normal | Stop (`stop`) |
+| `q` | Normal | Close the UI |
+
+Additional behavior that cannot be remapped:
+
+- Moving the cursor onto a testcase line in the header selects that case.
+- `:q`, `:close`, or `<C-w>c` in any pretest window saves edits and closes the whole UI.
+
+`<Tab>` and `<C-n>`/`<C-p>` are also bound in Insert mode. To restore the Insert-mode defaults, set `modes = "n"` on those bindings.
+
+See [`ui_keys`](configuration.md#ui_keys) for details.

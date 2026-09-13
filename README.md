@@ -1,31 +1,34 @@
+**English** | [한국어](README.ko.md)
+
 # pretest.nvim
 
-Local competitive programming test runner for Neovim.
-
-Compile, run, and judge test cases next to your source file. Test data is stored in a single `.prob` JSON file per problem under `.pretest/` (or `save_dir`).
+Run testcases and check the results right inside Neovim.
 
 ![pretest.nvim demo](demo.gif)
 
 ## Features
 
-- Language runners via `languages` (C++ and Python by default)
-- Sidebar or floating UI (toggle at runtime)
-- Edit **Input** / **Expected** in the UI; edit name and limits via commands
-- Verdicts: AC, WA, RE, TLE, MLE, CE, Stopped
-- Receive problems from [Competitive Companion](https://github.com/jmerle/competitive-companion)
+- **Language settings** C++ and Python are supported out of the box; add or modify languages through the `languages` config.
+- Switch between the **sidebar** and **floating** layout at runtime.
+- **Competitive Companion integration** Receive a single problem into the current file, create a new file per problem, or generate a whole contest at once.
+- **Buffer-aware UI** Moving between source files switches the UI to that file's problem, and per-file results are kept.
+- **Safe file moves** `:Pretest rename` / `:Pretest move` carry the `.prob` file and compiled binary along with the source.
 
 ## Requirements
 
-- [Neovim](https://neovim.io/) 0.10+
+- [Neovim](https://neovim.io/) 0.10 or newer
+- (Windows) One of `md5`, `openssl`, or `md5sum` on `PATH`
+  If Git for Windows is installed in `C:\Program Files\Git`, add `C:\Program Files\Git\usr\bin` to `PATH`.
 
-## Install (lazy.nvim)
+## Quick start
+
+Install with [lazy.nvim](https://github.com/folke/lazy.nvim). For other plugin managers, see [Installation](docs/installation.md).
 
 ```lua
 {
   "skrewbar/pretest.nvim",
-  -- lazy = false, -- required for companion.listen_on_setup (startup receive)
-  opts = {}, -- defaults; see docs/configuration.md
   cmd = "Pretest",
+  opts = {}, -- see docs/configuration.md
   keys = {
     { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
     { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
@@ -41,90 +44,32 @@ Compile, run, and judge test cases next to your source file. Test data is stored
 }
 ```
 
-Other plugin managers and manual install: [docs/installation.md](docs/installation.md).
+In a source file:
 
-## Keymaps
+1. `<leader>ta` or `:Pretest add` opens the UI with a new empty testcase and puts the cursor in **Input**.
+2. Fill in the Input section, move to **Expected** with `<Tab>`, type the expected output, and save with `:w`.
+3. Press `R` (run all) or `r` (run the current case). Verdicts appear in the header and the program output in **Output**.
+4. `<C-n>` / `<C-p>` move between testcases; `q` closes the UI.
 
-Suggested `<leader>t` mappings (also in the snippet above):
+Instead of typing testcases, you can run `:Pretest receive` and click the Competitive Companion button on a problem page. See [Competitive Companion](docs/competitive-companion.md).
 
-| Keys | Command | Description |
-|------|---------|-------------|
-| `<leader>tu` | `:Pretest toggle` | Toggle UI |
-| `<leader>tt` | `:Pretest toggle_layout` | Toggle sidebar/float |
-| `<leader>tR` | `:Pretest run` | Run all testcases |
-| `<leader>tr` | `:Pretest run_current` | Run current testcase |
-| `<leader>tn` | `:Pretest run_current_no_compile` | Run current testcase (no compile) |
-| `<leader>tN` | `:Pretest run_no_compile` | Run all (no compile) |
-| `<leader>ts` | `:Pretest stop` | Stop an in-flight compile/run |
-| `<leader>ta` | `:Pretest add` | Add testcase |
-| `<leader>te` | `:Pretest edit` | Edit/Focus |
-| `<leader>td` | `:Pretest delete` | Delete testcase |
+## Documentation
 
-UI-buffer keys (`r`, `R`, `s`, …) are listed in [Commands](docs/commands.md).
-
-### which-key.nvim
-
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads `desc` from the lazy.nvim `keys` table. For the `<leader>t` group label and icons, merge a `spec` into which-key's `opts`. Do not register icons from pretest: pretest is lazy-loaded, so `<leader>t` opens which-key before pretest loads and which-key falls back to auto icons from the `desc` text.
-
-```lua
--- lua/plugins/pretest.lua
-return {
-  {
-    "skrewbar/pretest.nvim",
-    cmd = "Pretest",
-    keys = {
-      { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-      { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-      { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-      { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-      { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-      { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-      { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-      { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-      { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-      { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
-    },
-    opts = {}, -- see docs/configuration.md
-  },
-  {
-    "folke/which-key.nvim",
-    optional = true,
-    opts = {
-      spec = {
-        { "<leader>t", group = "Pretest", icon = "󰤑" },
-        { "<leader>tu", icon = "󰖷" },
-        { "<leader>tt", icon = "󰖯" },
-        { "<leader>tR", icon = "󰐊" },
-        { "<leader>tr", icon = "󰑮" },
-        { "<leader>tn", icon = "󰑮" },
-        { "<leader>tN", icon = "󰓦" },
-        { "<leader>ts", icon = "󰓛" },
-        { "<leader>ta", icon = "󰐕" },
-        { "<leader>te", icon = "󰏫" },
-        { "<leader>td", icon = "󰆴" },
-      },
-    },
-  },
-}
-```
-
-`optional = true` merges this block into an existing which-key install (for example LazyVim) and does nothing if which-key is not used.
-
-## Docs
-
-- [Installation (other plugin managers)](docs/installation.md)
-- [Configuration](docs/configuration.md)
+- [Installation](docs/installation.md)
+- [Usage](docs/usage.md)
 - [Commands](docs/commands.md)
+- [Configuration](docs/configuration.md)
+- [Competitive Companion](docs/competitive-companion.md)
 
 ## `.prob` files
 
-Compatible with [CPH](https://github.com/agrawal-d/cph) `.prob` files. Path layout and `save_dir` are documented in [Configuration](docs/configuration.md).
+Testcases, the problem name, and limits are stored as JSON in `.pretest/.{filename}_{md5}.prob` next to the source file (or under `save_dir`). The format is compatible with the `.prob` files written by the [Competitive Programming Helper](https://github.com/agrawal-d/cph) VS Code extension, and fields pretest does not use are preserved. See [Usage → Where files are stored](docs/usage.md#where-files-are-stored).
 
-## Inspired by
+## Related projects
 
 - [CompetiTest.nvim](https://github.com/xeluxee/competitest.nvim)
 - [Competitive Programming Helper](https://github.com/agrawal-d/cph)
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE).
