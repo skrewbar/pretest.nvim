@@ -21,10 +21,10 @@ pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local:
 │ Local: main                          │  문제 이름
 │ TL 3000ms │ ML 1024MB                │  시간 | 메모리 제한   
 │ ──────────────────────────────────── │
-│ Testcases 2/3                        │  맞은 개수 / 전체
+│ Testcases 1/3                        │  맞은 개수 / 전체
 │  1  AC      12ms                     │
-│  2  WA       9ms                     │  현재 표시되고 있는 케이스는 [n]처럼 대괄호로 표시
-│ [3] RE      15ms  SIGSEGV            │
+│  2  WA       9ms                     │  
+│ [3] RE      15ms  SIGSEGV            │  선택된 케이스는 [n]처럼 대괄호로 표시
 │                                      │
 │ <C-n>/<C-p> switch  :w save  q close │  키 힌트 (toggle_hints로 토글)
 │ R run-all  r run-one  …              │
@@ -79,14 +79,14 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 
 ### 이름과 제한
 
-헤더 줄은 읽기 전용입니다. 프롬프트로 변경합니다:
+헤더는 읽기 전용이므로 명령어로 변경해야 합니다.
 
 ```vim
 :Pretest edit_name     " 헤더에 표시되는 문제 이름
 :Pretest edit_limits   " 시간 제한(ms), 그다음 메모리 제한(MB, 0이면 MLE 끄기)
 ```
 
-새 로컬 문제는 `default_time_limit`(3000ms)과 `default_memory_limit`(1024MB)으로 시작합니다. Competitive Companion으로 받은 문제는 저지의 제한을 그대로 가져옵니다.
+새 로컬 문제는 `default_time_limit` `default_memory_limit`으로 설정됩니다. Competitive Companion으로 받은 문제는 저지의 제한을 그대로 가져옵니다.
 
 ## 실행
 
@@ -101,7 +101,9 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 
 선택된 케이스는 `Pending`이 되고, 컴파일러가 도는 동안 헤더에 `Compiling`이 표시된 뒤, 각 케이스가 순서대로 실행되며 끝나는 대로 결과가 채워집니다.
 
-프로세스는 소스 파일의 디렉터리를 작업 디렉터리로 실행되고, 케이스 입력을 stdin으로 받으며, 시간 제한을 넘기면 종료됩니다. 컴파일 언어는 바이너리를 아티팩트 디렉터리에 씁니다([파일 저장 위치](#파일-저장-위치) 참고). `no_compile` 계열 명령은 마지막으로 성공한 빌드를 재사용합니다.
+프로세스는 소스 파일의 디렉터리를 작업 디렉터리로 실행되고, 케이스 입력을 stdin으로 받으며, 시간 제한을 넘기면 종료됩니다. 컴파일 언어는 바이너리를 아티팩트 디렉터리에 씁니다([파일 저장 위치](#파일-저장-위치) 참고).
+
+`no_compile` 계열 명령은 마지막으로 성공한 빌드를 재사용합니다.
 
 ## 채점 결과
 
@@ -122,7 +124,7 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 - 마지막의 빈 줄 모두 제거
 - `\r\n`을 `\n`으로 변경
 
-**메모리**는 OS 도구로 측정한 최대 RSS(resident set size)이므로 인터프리터의 기본 사용량도 포함됩니다. 메모리 제한을 `0`으로 설정하면 메모리 제한을 끌 수 있습니다.
+**메모리**는 OS 도구로 측정한 최대 RSS로 판단합니다. 메모리 제한을 `0`으로 설정하면 메모리 제한을 끌 수 있습니다.
 
 **런타임 에러**는 시그널(`SIGSEGV`, `SIGABRT`, `SIGFPE` 등)을 보여 주거나, 프로세스가 0이 아닌 코드로 정상 종료한 경우 stderr에서 파싱한 힌트를 보여 줍니다. sanitizer 보고(`ASan`, `UBSan`), `Assertion failed`, 또는 마지막 `Error:` / `Exception:` 줄(Python, Java)입니다. Windows에서는 `ACCESS_VIOLATION`, `STACK_OVERFLOW` 같은 NTSTATUS 코드를 인식합니다.
 

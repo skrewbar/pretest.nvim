@@ -137,8 +137,8 @@ problem_path = "{home}/cp/{judge}/{problem}.{ext}",
 
 ## Troubleshooting
 
-**`cannot bind 127.0.0.1:27121 ...`**
+**`cannot bind 127.0.0.1:27121 ...`** \
 Another process is using the port. Stop the other receiver, or change both `companion.port` and the extension's "Custom ports". Only one Neovim instance can receive at a time.
 
-**Nothing happens when clicking +**
+**Nothing happens when clicking +** \
 Check `:Pretest receive status`. The icon is red when the extension does not support the site.

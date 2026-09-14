@@ -6,14 +6,11 @@ pretest.nvim is a pure Lua plugin with no runtime dependencies beyond Neovim 0.1
 
 ## Requirements
 
-- Neovim 0.10+
+- Neovim 0.10+ \
   Uses `vim.system`, `vim.fs`, and `vim.uv`.
-- (Windows) One of `md5`, `openssl`, or `md5sum`
-  Used to derive `.prob` file names.
-  macOS and Linux ship one of these, so nothing needs to be installed.
-  On Windows, use `md5sum` or `openssl` from Git for Windows' `usr\bin`.
-- (Optional, Linux) `/usr/bin/time`
-  Used for memory measurement. Falls back to `/proc` when missing.
+- (Windows) One of `md5`, `openssl`, or `md5sum` \
+  Used to derive `.prob` file names. \
+  If Git for Windows is installed, use `md5sum` or `openssl` from its `usr\bin`.
 
 ## lazy.nvim
 

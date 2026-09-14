@@ -2,22 +2,26 @@
 
 # pretest.nvim
 
-Neovim에서 간편하게 테스트케이스를 실행하고 결과를 확인할 수 있는 플러그인입니다.
+Neovim에서 테스트케이스를 실행하고 결과를 확인할 수 있는 플러그인입니다.
 
 ![pretest.nvim demo](demo.gif)
 
 ## 주요 기능
 
-- **언어 설정** 기본적으로 C++과 Python을 지원하며, `languages` config을 통해 설정을 추가/수정할 수 있습니다.
-- 실행 중에 **사이드바**와 **플로팅**간 레이아웃을 전환할 수 있습니다.
-- **Competitive Companion 연동** 현재 파일에 문제 하나를 받거나, 문제마다 새 파일을 만들거나, 대회 전체를 한 번에 생성할 수 있습니다.
-- **버퍼 연동 UI** 소스 파일 사이를 이동하면 UI도 해당 문제로 자동 전환되고, 파일별 결과는 그대로 유지됩니다.
-- **안전한 파일 이동** `:Pretest rename` / `:Pretest move`가 `.prob` 파일과 컴파일된 바이너리를 소스와 함께 옮깁니다.
+- **언어 설정** \
+  기본적으로 C++과 Python을 지원하며, `languages` config을 통해 설정을 추가/수정할 수 있습니다.
+- 실행 중에 레이아웃을 **사이드바**와 **플로팅** 사이에서 전환할 수 있습니다.
+- **Competitive Companion 연동** \
+  현재 파일에 문제 하나를 받거나, 문제마다 새 파일을 만들거나, 대회 전체를 한 번에 생성할 수 있습니다.
+- **버퍼 연동 UI** \
+  소스 파일 사이를 이동하면 UI도 해당 문제로 자동 전환되고, 파일별 결과는 그대로 유지됩니다.
+- **안전한 파일 이동** \
+  `:Pretest rename` / `:Pretest move`가 `.prob` 파일과 컴파일된 바이너리를 소스와 함께 옮깁니다.
 
 ## 요구 사항
 
 - [Neovim](https://neovim.io/) 0.10 이상
-- (Windows) `PATH`에 `md5`, `openssl`, `md5sum` 중 하나
+- (Windows) `PATH`에 `md5`, `openssl`, `md5sum` 중 하나 \
   Git for Windows가 `C:\Program Files\Git`에 설치되어 있는 경우 `C:\Program Files\Git\usr\bin`를 `PATH`에 추가하면 됩니다.
 
 ## 빠른 시작

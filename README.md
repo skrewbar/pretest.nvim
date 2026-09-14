@@ -2,22 +2,26 @@
 
 # pretest.nvim
 
-Run testcases and check the results right inside Neovim.
+A plugin for running testcases and checking the results in Neovim.
 
 ![pretest.nvim demo](demo.gif)
 
 ## Features
 
-- **Language settings** C++ and Python are supported out of the box; add or modify languages through the `languages` config.
-- Switch between the **sidebar** and **floating** layout at runtime.
-- **Competitive Companion integration** Receive a single problem into the current file, create a new file per problem, or generate a whole contest at once.
-- **Buffer-aware UI** Moving between source files switches the UI to that file's problem, and per-file results are kept.
-- **Safe file moves** `:Pretest rename` / `:Pretest move` carry the `.prob` file and compiled binary along with the source.
+- **Language settings** \
+  C++ and Python are supported out of the box; add or modify languages through the `languages` config.
+- You can switch the layout between **sidebar** and **floating** at runtime.
+- **Competitive Companion integration** \
+  Receive a single problem into the current file, create a new file per problem, or generate a whole contest at once.
+- **Buffer-aware UI** \
+  Moving between source files switches the UI to that file's problem, and per-file results are kept.
+- **Safe file moves** \
+  `:Pretest rename` / `:Pretest move` carry the `.prob` file and compiled binary along with the source.
 
 ## Requirements
 
 - [Neovim](https://neovim.io/) 0.10 or newer
-- (Windows) One of `md5`, `openssl`, or `md5sum` on `PATH`
+- (Windows) One of `md5`, `openssl`, or `md5sum` on `PATH` \
   If Git for Windows is installed in `C:\Program Files\Git`, add `C:\Program Files\Git\usr\bin` to `PATH`.
 
 ## Quick start

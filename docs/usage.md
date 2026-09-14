@@ -21,10 +21,10 @@ The sidebar layout (default, on the right) stacks the sections below vertically.
 │ Local: main                          │  problem name
 │ TL 3000ms │ ML 1024MB                │  time | memory limit
 │ ──────────────────────────────────── │
-│ Testcases 2/3                        │  accepted / total
+│ Testcases 1/3                        │  accepted / total
 │  1  AC      12ms                     │
-│  2  WA       9ms                     │  the current case is marked with brackets, e.g. [n]
-│ [3] RE      15ms  SIGSEGV            │
+│  2  WA       9ms                     │  
+│ [3] RE      15ms  SIGSEGV            │  the selected case is marked with brackets, e.g. [n]
 │                                      │
 │ <C-n>/<C-p> switch  :w save  q close │  key hints (toggle with toggle_hints)
 │ R run-all  r run-one  …              │
@@ -79,14 +79,14 @@ Leading and trailing blank lines are stored exactly as typed. They do not affect
 
 ### Name and limits
 
-The header lines are read-only. Change them through prompts:
+The header is read-only, so you must change it with commands.
 
 ```vim
 :Pretest edit_name     " problem name shown in the header
 :Pretest edit_limits   " time limit in ms, then memory limit in MB (0 disables MLE)
 ```
 
-New local problems start with `default_time_limit` (3000 ms) and `default_memory_limit` (1024 MB). Problems received from Competitive Companion carry the judge's limits.
+New local problems are set from `default_time_limit` and `default_memory_limit`. Problems received from Competitive Companion carry the judge's limits.
 
 ## Running
 
@@ -101,7 +101,9 @@ New local problems start with `default_time_limit` (3000 ms) and `default_memory
 
 Selected cases become `Pending`, the header shows `Compiling` while the compiler runs, then each case runs in order and its verdict fills in as it finishes.
 
-Processes run with the source file's directory as the working directory, receive the case input on stdin, and are killed when they exceed the time limit. Compiled languages write their binary to the artifact directory (see [Where files are stored](#where-files-are-stored)). The `no_compile` commands reuse the last successful build.
+Processes run with the source file's directory as the working directory, receive the case input on stdin, and are killed when they exceed the time limit. Compiled languages write their binary to the artifact directory (see [Where files are stored](#where-files-are-stored)).
+
+The `no_compile` commands reuse the last successful build.
 
 ## Verdicts
 
@@ -122,7 +124,7 @@ Output is normalized before comparison:
 - trailing empty lines are removed
 - `\r\n` is converted to `\n`
 
-**Memory** is the peak RSS (resident set size) measured by OS tools, so the interpreter's baseline usage counts too. Set the memory limit to `0` to turn it off.
+**Memory** is judged by the peak RSS measured by OS tools. Set the memory limit to `0` to turn it off.
 
 **Runtime errors** show the signal (`SIGSEGV`, `SIGABRT`, `SIGFPE`, …) or, when the process exited normally with a non-zero code, a hint parsed from stderr: sanitizer reports (`ASan`, `UBSan`), `Assertion failed`, or the last `Error:` / `Exception:` line (Python, Java). On Windows, NTSTATUS codes such as `ACCESS_VIOLATION` and `STACK_OVERFLOW` are recognized.
 

@@ -138,7 +138,9 @@ ui_keys = {
 
 ## `languages`
 
-`languages` maps a Neovim **filetype** (the value of `:set filetype?`, e.g. `cpp`, `python`, `rust`) to how to build and run it:
+You can change how a language is compiled and run, or add a new language.
+
+The basic format is as follows.
 
 ```lua
 languages = {
@@ -156,10 +158,10 @@ languages = {
 }
 ```
 
-- `exec` is spawned directly, not through a shell. Quoting, globbing, `~`, and `&&` do not work.
-- In `exec` and each element of `args`, `$src` expands to the absolute source path and `$bin` to the binary path. Placeholders embedded in a longer string (e.g. `"--out=$bin"`) are **not** expanded. Use a function when you need that.
-- Functions receive `ctx = { src_path = "...", bin_path = "..." }` and return a string (`exec`) or a list (`args`). The return value is used as is.
-- `bin_path` / `$bin` is only a suggestion; you can write elsewhere.
+- `exec` is spawned directly, not through a shell. Therefore quoting, globbing, `~`, and `&&` do not work.
+- In `exec` and each element of `args`, a value of `$src` is replaced with the absolute source path and `$bin` with the binary path. Placeholders embedded in a longer string (e.g. `"--out=$bin"`) are **not** replaced. Use a function when you need that.
+- Functions receive `ctx = { src_path = "...", bin_path = "..." }` and must return a string (`exec`) or a list (`args`). The return value is used as is.
+- You do not have to use `bin_path` / `$bin`. You can write elsewhere.
 - Both compile and run use the source file's directory as the working directory.
 
 ### Which language a buffer uses
@@ -168,7 +170,7 @@ pretest first checks the buffer's `filetype`. If that is not a key in `languages
 
 ### Examples
 
-Override just the compiler and flags for C++ (the rest of the entry is kept):
+- Changing the C++ compiler and flags
 
 ```lua
 languages = {
@@ -181,13 +183,13 @@ languages = {
 },
 ```
 
-Use PyPy instead of CPython:
+- Use PyPy instead of CPython
 
 ```lua
 languages = { python = { run = { exec = "pypy3" } } },
 ```
 
-Add C and Rust:
+- Add C and Rust
 
 ```lua
 languages = {
@@ -204,7 +206,7 @@ languages = {
 },
 ```
 
-Java. Functions are used because the class name comes from the file name and the class file is written to a directory:
+- Add Java
 
 ```lua
 languages = {

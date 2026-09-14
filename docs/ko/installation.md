@@ -6,14 +6,11 @@ pretest.nvim은 Neovim 0.10+ 외에 런타임 의존성이 없는 순수 Lua 플
 
 ## 요구 사항
 
-- Neovim 0.10+
+- Neovim 0.10+ \
   `vim.system`, `vim.fs`, `vim.uv`를 사용합니다.
-- (Windows) `md5`, `openssl`, `md5sum`중 하나
-  `.prob` 파일 이름 생성에 사용됩니다.
-  macOS와 Linux는 내장되어 있어 따로 설치할 필요가 없습니다.
-  Windows의 경우 Git for Windows의 `usr\bin`에 있는 `md5sum`과 `openssl`를 사용하면 됩니다.
-- (선택, Linux) `/usr/bin/time`
-  메모리 측정에 사용됩니다. 없는 경우에는 `/proc`으로 대체합니다.
+- (Windows) `md5`, `openssl`, `md5sum`중 하나 \
+  `.prob` 파일 이름 생성에 사용됩니다. \
+  Git for Windows가 설치되어 있는 경우 `usr\bin`에 있는 `md5sum`과 `openssl`를 사용하면 됩니다.
 
 ## lazy.nvim
 
