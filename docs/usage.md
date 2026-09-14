@@ -75,7 +75,7 @@ Leading and trailing blank lines are stored exactly as typed. They do not affect
 
 ### Deleting
 
-`:Pretest delete` removes the current case; `:Pretest delete 3` removes case 3. Results for all cases are cleared because indices shift.
+`:Pretest delete` removes the current case; `:Pretest delete 3` removes case 3. A run in progress is stopped first.
 
 ### Name and limits
 

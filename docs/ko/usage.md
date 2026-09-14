@@ -75,7 +75,7 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 
 ### 삭제
 
-`:Pretest delete`는 현재 케이스를, `:Pretest delete 3`은 3번 케이스를 삭제합니다. 번호가 밀리기 때문에 모든 케이스의 결과가 지워집니다.
+`:Pretest delete`는 현재 케이스를, `:Pretest delete 3`은 3번 케이스를 삭제합니다. 실행 중이면 먼저 멈춘 뒤 삭제합니다.
 
 ### 이름과 제한
 

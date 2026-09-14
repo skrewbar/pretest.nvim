@@ -1936,6 +1936,45 @@ function M.edit_name()
   end)
 end
 
+---Stop an in-flight compile/run without notifying when nothing is running.
+---@param s pretest.Session
+---@return boolean
+local function stop_run(s)
+  local was_compiling = runner.is_compiling(s.src_path)
+  if not runner.stop(s.src_path) then
+    return false
+  end
+  if was_compiling then
+    s.compile_status = "stopped"
+  else
+    for _, r in pairs(s.results) do
+      if r.verdict == "Running" then
+        r.verdict = "Stopped"
+      end
+    end
+  end
+  return true
+end
+
+---Drop `deleted` and shift later result slots down. Sparse keys are remapped
+---explicitly so `#results` holes do not drop later verdicts.
+---@param results table<integer, pretest.CaseResult>
+---@param deleted integer
+---@return table<integer, pretest.CaseResult>
+local function remap_results(results, deleted)
+  local removed = {}
+  for i, r in pairs(results) do
+    if type(i) == "number" then
+      if i < deleted then
+        removed[i] = r
+      elseif i > deleted then
+        removed[i - 1] = r
+      end
+    end
+  end
+  return removed
+end
+
 ---@param index integer|nil
 function M.delete_testcase(index)
   local s = M.ensure_session()
@@ -1947,12 +1986,14 @@ function M.delete_testcase(index)
     return
   end
   index = index or s.index
-  M.flush_edits()
-  if not prob.delete_testcase(s.problem, index) then
+  if index < 1 or index > #s.problem.tests then
     util.notify("invalid testcase index", vim.log.levels.ERROR)
     return
   end
-  s.results = {}
+  M.flush_edits()
+  stop_run(s)
+  prob.delete_testcase(s.problem, index)
+  s.results = remap_results(s.results, index)
   if #s.problem.tests == 0 then
     s.index = 0
   else
@@ -2081,19 +2122,9 @@ function M.stop()
     util.notify("no session", vim.log.levels.WARN)
     return
   end
-  local was_compiling = runner.is_compiling(s.src_path)
-  if not runner.stop(s.src_path) then
+  if not stop_run(s) then
     util.notify("not running")
     return
-  end
-  if was_compiling then
-    s.compile_status = "stopped"
-  else
-    for _, r in pairs(s.results) do
-      if r.verdict == "Running" then
-        r.verdict = "Stopped"
-      end
-    end
   end
   if M.is_open() then
     render()

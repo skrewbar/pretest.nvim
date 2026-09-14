@@ -961,12 +961,12 @@ function M.run_tests(src_path, ft, problem, indices, do_compile, hooks)
         if not is_current() then
           return
         end
-        if hooks.on_case_done then
-          hooks.on_case_done(idx, result)
-        end
         if job.cancelled then
           finish_all()
           return
+        end
+        if hooks.on_case_done then
+          hooks.on_case_done(idx, result)
         end
         run_next()
       end)

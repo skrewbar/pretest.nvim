@@ -51,7 +51,7 @@ Run commands save the source buffer first if it has unsaved changes, and open th
 |---------|-------------|
 | `add` | Append an empty testcase to the end of the list and select it. Opens the UI if it is closed. |
 | `edit [index]` | Open the UI and focus **Input**. With `index`, select that testcase. |
-| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`. Clears all results. |
+| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`. Stops a run in progress first. |
 | `edit_name` | Prompt for a new problem name. |
 | `edit_limits` | Prompt for the time limit (ms) and the memory limit (MB). A memory limit of `0` disables the memory check. |
 
