@@ -52,7 +52,7 @@ In a source file:
 
 1. `<leader>ta` or `:Pretest add` opens the UI with a new empty testcase and puts the cursor in **Input**.
 2. Fill in the Input section, move to **Expected** with `<Tab>`, type the expected output, and save with `:w`.
-3. Press `R` (run all) or `r` (run the current case). Verdicts appear in the header and the program output in **Output**.
+3. Press `<S-CR>` (run all) or `<CR>` (run the current case). Verdicts appear in the header and the program output in **Output**.
 4. `<C-n>` / `<C-p>` move between testcases; `q` closes the UI.
 
 Instead of typing testcases, you can run `:Pretest receive` and click the Competitive Companion button on a problem page. See [Competitive Companion](docs/competitive-companion.md).

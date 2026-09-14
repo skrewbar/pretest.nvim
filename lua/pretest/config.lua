@@ -137,12 +137,11 @@ local defaults = {
     next_section = "<Tab>",
     prev_section = "<S-Tab>",
     close = "q",
-    stop = "s",
-    run_all = "R",
-    run_one = "r",
-    -- <C-R>/<C-r> are identical in terminals; use Ctrl-Shift-r for "all".
-    run_all_no_compile = "<C-S-r>",
-    run_one_no_compile = "<C-r>",
+    stop = { "<C-c>", "s" },
+    run_all = "<S-CR>",
+    run_one = "<CR>",
+    run_all_no_compile = "g<S-CR>",
+    run_one_no_compile = "g<CR>",
   },
   languages = {
     cpp = {

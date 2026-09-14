@@ -91,11 +91,11 @@ pretest UI에서 동작하는 기본 키입니다. 전부 [`ui_keys`](configurat
 |----|------|------|
 | `<C-n>` / `<C-p>` | Normal, Insert | 다음 / 이전 테스트케이스 |
 | `<Tab>` / `<S-Tab>` | Normal, Insert | 다음 / 이전 섹션 |
-| `R` | Normal | 모든 테스트케이스 실행 (`run`) |
-| `r` | Normal | 현재 테스트케이스 실행 (`run_current`) |
-| `<C-S-r>` | Normal | 컴파일 없이 전체 실행 (`run_no_compile`) |
-| `<C-r>` | Normal | 컴파일 없이 현재 케이스 실행 (`run_current_no_compile`) |
-| `s` | Normal | 중지 (`stop`) |
+| `<S-CR>` | Normal | 모든 테스트케이스 실행 (`run`) |
+| `<CR>` | Normal | 현재 테스트케이스 실행 (`run_current`) |
+| `g<S-CR>` | Normal | 컴파일 없이 전체 실행 (`run_no_compile`) |
+| `g<CR>` | Normal | 컴파일 없이 현재 케이스 실행 (`run_current_no_compile`) |
+| `<C-c>` / `s` | Normal | 중지 (`stop`) |
 | `q` | Normal | UI 닫기 |
 
 키맵으로 바꿀 수 없는 추가 동작:

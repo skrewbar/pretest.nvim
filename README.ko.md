@@ -52,7 +52,7 @@ Neovim에서 테스트케이스를 실행하고 결과를 확인할 수 있는 �
 
 1. `<leader>ta` 혹은 `:Pretest add`를 실행하면 빈 테스트케이스가 추가된 UI가 열리고 커서가 **Input**에 놓입니다.
 2. Input 섹션을 채우고 `<Tab>`으로 **Expected**로 이동해 기대 출력을 입력한 뒤 `:w`로 저장합니다.
-3. `R`(전체 실행) 또는 `r`(현재 케이스 실행)을 누릅니다. 헤더에 결과가 표시되고 **Output**에 프로그램 출력이 나타납니다.
+3. `<S-CR>`(전체 실행) 또는 `<CR>`(현재 케이스 실행)을 누릅니다. 헤더에 결과가 표시되고 **Output**에 프로그램 출력이 나타납니다.
 4. `<C-n>` / `<C-p>`로 테스트케이스를 이동하고, `q`로 UI를 닫습니다.
 
 직접 입력하는 대신 `:Pretest receive`를 실행하고 문제 페이지에서 Competitive Companion 버튼을 눌러도 됩니다. [Competitive Companion](docs/ko/competitive-companion.md) 문서를 참고하세요.

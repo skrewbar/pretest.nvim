@@ -93,7 +93,7 @@ map("<leader>te", "edit", "Edit/Focus")
 map("<leader>td", "delete", "Delete testcase")
 ```
 
-Every action is available as `:Pretest <subcommand>`, so you can use keys other than `<leader>t`. Keys inside the pretest UI windows (`r`, `R`, `<C-n>`, …) are a separate setting, [`ui_keys`](configuration.md#ui_keys).
+Every action is available as `:Pretest <subcommand>`, so you can use keys other than `<leader>t`. Keys inside the pretest UI windows (`<CR>`, `<S-CR>`, `<C-n>`, …) are a separate setting, [`ui_keys`](configuration.md#ui_keys).
 
 ## which-key.nvim
 

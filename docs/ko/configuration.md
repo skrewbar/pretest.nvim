@@ -40,11 +40,11 @@ require("pretest").setup({
     next_section = "<Tab>",
     prev_section = "<S-Tab>",
     close = "q",
-    stop = "s",
-    run_all = "R",
-    run_one = "r",
-    run_all_no_compile = "<C-S-r>",
-    run_one_no_compile = "<C-r>",
+    stop = { "<C-c>", "s" },
+    run_all = "<S-CR>",
+    run_one = "<CR>",
+    run_all_no_compile = "g<S-CR>",
+    run_one_no_compile = "g<CR>",
   },
 
   -- 언어 -------------------------------------------
@@ -134,7 +134,7 @@ ui_keys = {
 
 `:w`(Input/Expected 저장), 헤더 커서로 케이스 선택, `:q`로 UI 닫기는 내장 동작이며 `ui_keys`에 포함되지 않습니다.
 
-> `<C-r>`과 `<C-S-r>`를 구분하지 못하는 터미널 에뮬레이터를 사용하는 경우 다른 키로 변경해 주세요.
+> `<CR>`과 `<S-CR>`를 구분하지 못하는 터미널 에뮬레이터를 사용하는 경우 다른 키로 변경해 주세요.
 
 ## `languages`
 

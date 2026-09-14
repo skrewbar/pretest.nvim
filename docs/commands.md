@@ -91,11 +91,11 @@ Default keys active in the pretest UI. All of them can be changed through [`ui_k
 |-----|-------|--------|
 | `<C-n>` / `<C-p>` | Normal, Insert | Next / previous testcase |
 | `<Tab>` / `<S-Tab>` | Normal, Insert | Next / previous section |
-| `R` | Normal | Run all testcases (`run`) |
-| `r` | Normal | Run the current testcase (`run_current`) |
-| `<C-S-r>` | Normal | Run all without compiling (`run_no_compile`) |
-| `<C-r>` | Normal | Run the current case without compiling (`run_current_no_compile`) |
-| `s` | Normal | Stop (`stop`) |
+| `<S-CR>` | Normal | Run all testcases (`run`) |
+| `<CR>` | Normal | Run the current testcase (`run_current`) |
+| `g<S-CR>` | Normal | Run all without compiling (`run_no_compile`) |
+| `g<CR>` | Normal | Run the current case without compiling (`run_current_no_compile`) |
+| `<C-c>` / `s` | Normal | Stop (`stop`) |
 | `q` | Normal | Close the UI |
 
 Additional behavior that cannot be remapped:

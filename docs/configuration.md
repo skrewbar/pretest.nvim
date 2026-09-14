@@ -40,11 +40,11 @@ require("pretest").setup({
     next_section = "<Tab>",
     prev_section = "<S-Tab>",
     close = "q",
-    stop = "s",
-    run_all = "R",
-    run_one = "r",
-    run_all_no_compile = "<C-S-r>",
-    run_one_no_compile = "<C-r>",
+    stop = { "<C-c>", "s" },
+    run_all = "<S-CR>",
+    run_one = "<CR>",
+    run_all_no_compile = "g<S-CR>",
+    run_one_no_compile = "g<CR>",
   },
 
   -- Languages ----------------------------------------------------------
@@ -134,7 +134,7 @@ ui_keys = {
 
 `:w` (save Input/Expected), header cursor selection, and `:q` closing the UI are built-in and not part of `ui_keys`.
 
-> If your terminal emulator cannot distinguish `<C-r>` from `<C-S-r>`, change those keys.
+> If your terminal emulator cannot distinguish `<CR>` from `<S-CR>`, change those keys.
 
 ## `languages`
 

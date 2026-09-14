@@ -27,7 +27,7 @@ The sidebar layout (default, on the right) stacks the sections below vertically.
 │ [3] RE      15ms  SIGSEGV            │  the selected case is marked with brackets, e.g. [n]
 │                                      │
 │ <C-n>/<C-p> switch  :w save  q close │  key hints (toggle with toggle_hints)
-│ R run-all  r run-one  …              │
+│ <S-CR> run-all  <CR> run-one  …      │
 ├ Input ───────────────────────────────┤
 │ 3                                    │  input / editable
 │ 1 2 3                                │
@@ -92,12 +92,12 @@ New local problems are set from `default_time_limit` and `default_memory_limit`.
 
 | Command | UI key | Action |
 |---------|--------|--------|
-| `:Pretest run` | `R` | Compile, then run every testcase |
+| `:Pretest run` | `<S-CR>` | Compile, then run every testcase |
 | `:Pretest run 1 3` | | Compile, then run cases 1 and 3 |
-| `:Pretest run_current` | `r` | Compile, then run the current case |
-| `:Pretest run_no_compile [n...]` | `<C-S-r>` | Skip compilation and run all (or the given) cases with the existing binary |
-| `:Pretest run_current_no_compile` | `<C-r>` | Skip compilation and run the current case |
-| `:Pretest stop` | `s` | Stop the running compile or execution |
+| `:Pretest run_current` | `<CR>` | Compile, then run the current case |
+| `:Pretest run_no_compile [n...]` | `g<S-CR>` | Skip compilation and run all (or the given) cases with the existing binary |
+| `:Pretest run_current_no_compile` | `g<CR>` | Skip compilation and run the current case |
+| `:Pretest stop` | `<C-c>` / `s` | Stop the running compile or execution |
 
 Selected cases become `Pending`, the header shows `Compiling` while the compiler runs, then each case runs in order and its verdict fills in as it finishes.
 
@@ -115,7 +115,7 @@ The `no_compile` commands reuse the last successful build.
 | `MLE` | Peak memory exceeded `memoryLimit` MB (checked after the process exits; the reason column shows the peak, e.g. `MLE 21MB`) |
 | `RE` | Exited with a non-zero code or was terminated by a signal. The reason column shows `SIGSEGV`, `exit 1`, `ZeroDivisionError`, … |
 | `CE` | Compilation failed. Compiler output is shown in **Stderr** |
-| `Stopped` | Interrupted by `:Pretest stop` / `s` |
+| `Stopped` | Interrupted by `:Pretest stop` / `<C-c>` / `s` |
 | `Pending` / `Running` | Waiting / in progress |
 
 Output is normalized before comparison:

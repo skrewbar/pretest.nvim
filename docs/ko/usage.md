@@ -27,7 +27,7 @@ pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local:
 │ [3] RE      15ms  SIGSEGV            │  선택된 케이스는 [n]처럼 대괄호로 표시
 │                                      │
 │ <C-n>/<C-p> switch  :w save  q close │  키 힌트 (toggle_hints로 토글)
-│ R run-all  r run-one  …              │
+│ <S-CR> run-all  <CR> run-one  …      │
 ├ Input ───────────────────────────────┤
 │ 3                                    │  입력 / 수정 가능
 │ 1 2 3                                │
@@ -92,12 +92,12 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 
 | 명령 | UI 키 | 동작 |
 |------|-------|-----------|
-| `:Pretest run` | `R` | 컴파일 후 모든 테스트케이스 실행 |
+| `:Pretest run` | `<S-CR>` | 컴파일 후 모든 테스트케이스 실행 |
 | `:Pretest run 1 3` | | 컴파일 후 1번과 3번 케이스 실행 |
-| `:Pretest run_current` | `r` | 컴파일 후 현재 케이스 실행 |
-| `:Pretest run_no_compile [n...]` | `<C-S-r>` | 컴파일을 건너뛰고 기존 바이너리로 전체(또는 지정한) 케이스 실행 |
-| `:Pretest run_current_no_compile` | `<C-r>` | 컴파일을 건너뛰고 현재 케이스 실행 |
-| `:Pretest stop` | `s` | 진행 중인 컴파일이나 실행을 종료 |
+| `:Pretest run_current` | `<CR>` | 컴파일 후 현재 케이스 실행 |
+| `:Pretest run_no_compile [n...]` | `g<S-CR>` | 컴파일을 건너뛰고 기존 바이너리로 전체(또는 지정한) 케이스 실행 |
+| `:Pretest run_current_no_compile` | `g<CR>` | 컴파일을 건너뛰고 현재 케이스 실행 |
+| `:Pretest stop` | `<C-c>` / `s` | 진행 중인 컴파일이나 실행을 종료 |
 
 선택된 케이스는 `Pending`이 되고, 컴파일러가 도는 동안 헤더에 `Compiling`이 표시된 뒤, 각 케이스가 순서대로 실행되며 끝나는 대로 결과가 채워집니다.
 
@@ -115,7 +115,7 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 | `MLE` | 최대 메모리가 `memoryLimit`MB를 초과 (프로세스 종료 후 판정. 원인 칸에 최대치 표시, 예: `MLE 21MB`) |
 | `RE` | 0이 아닌 코드로 종료되었거나 시그널로 종료됨. 원인 칸에 `SIGSEGV`, `exit 1`, `ZeroDivisionError` 등 표시 |
 | `CE` | 컴파일 실패. 컴파일러 출력은 **Stderr**에 표시 |
-| `Stopped` | `:Pretest stop` / `s`로 중단됨 |
+| `Stopped` | `:Pretest stop` / `<C-c>` / `s`로 중단됨 |
 | `Pending` / `Running` | 대기 중 / 실행 중 |
 
 출력을 비교할 때에는 다음과 같이 처리하고 비교합니다.
