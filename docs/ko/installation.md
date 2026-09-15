@@ -97,7 +97,7 @@ map("<leader>td", "delete", "Delete testcase")
 
 ## which-key.nvim
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3는 각 매핑의 `desc`를 자동으로 읽습니다. `<leader>t` 그룹 이름과 아이콘을 지정하려면 which-key 옵션에 `spec`을 추가하면 됩니다.
+[which-key.nvim](https://github.com/folke/which-key.nvim) v3는 각 매핑의 `desc`를 자동으로 읽습니다. `<leader>t` 그룹 이름과 아이콘을 지정하려면 which-key 옵션에 `spec`을 추가하면 됩니다. pretest UI 안에서만 동작하는 키(`<CR>`, `<C-n>` 등)는 버퍼 로컬이라 전역 `desc`가 없으므로, `real = true`로 따로 등록하세요. 그러면 해당 버퍼 로컬 키맵이 있을 때만 which-key에 표시됩니다([UI 키](commands.md#ui-keys) 참고).
 
 ```lua
 -- lua/plugins/pretest.lua
@@ -126,13 +126,28 @@ return {
         { "<leader>ta", icon = "󰐕" },
         { "<leader>te", icon = "󰏫" },
         { "<leader>td", icon = "󰆴" },
+        -- Pretest UI 버퍼 키 (버퍼 로컬 키맵이 있을 때만 표시)
+        {
+          real = true,
+          { "<C-n>", desc = "Next testcase", mode = { "n", "i" }, icon = "󰑐" },
+          { "<C-p>", desc = "Previous testcase", mode = { "n", "i" }, icon = "󰑐" },
+          { "<Tab>", desc = "Next section", mode = { "n", "i" }, icon = "󰘳" },
+          { "<S-Tab>", desc = "Previous section", mode = { "n", "i" }, icon = "󰘵" },
+          { "<S-CR>", desc = "Run all testcases", icon = "󰐊" },
+          { "<CR>", desc = "Run current testcase", icon = "󰑮" },
+          { "g<S-CR>", desc = "Run all (no compile)", icon = "󰓦" },
+          { "g<CR>", desc = "Run current (no compile)", icon = "󰑮" },
+          { "<C-c>", desc = "Stop run", icon = "󰓛" },
+          { "s", desc = "Stop run", icon = "󰓛" },
+          { "q", desc = "Close UI", icon = "󰅖" },
+        },
       },
     },
   },
 }
 ```
 
-`optional = true`를 사용하면 기존 which-key spec에 병합됩니다. lazy.nvim을 쓰지 않는다면 같은 테이블을 `require("which-key").add({ ... })`에 넘기면 됩니다.
+`optional = true`를 사용하면 기존 which-key spec에 병합됩니다. lazy.nvim을 쓰지 않는다면 같은 테이블을 `require("which-key").add({ ... })`에 넘기면 됩니다. [`ui_keys`](configuration.md#ui_keys)로 UI 키를 바꿨다면 `real = true` 블록도 같이 맞춰 주세요.
 
 ## 설치 확인
 

@@ -97,7 +97,7 @@ Every action is available as `:Pretest <subcommand>`, so you can use keys other 
 
 ## which-key.nvim
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads the `desc` of each mapping automatically. To set the `<leader>t` group name and icons, add a `spec` to which-key's options.
+[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads the `desc` of each mapping automatically. To set the `<leader>t` group name and icons, add a `spec` to which-key's options. Keys that work only inside the pretest UI (`<CR>`, `<C-n>`, …) are buffer-local and have no global `desc`, so register them separately with `real = true` — which-key shows them only when the matching buffer-local keymap exists (see [UI keys](commands.md#ui-keys)).
 
 ```lua
 -- lua/plugins/pretest.lua
@@ -126,13 +126,28 @@ return {
         { "<leader>ta", icon = "󰐕" },
         { "<leader>te", icon = "󰏫" },
         { "<leader>td", icon = "󰆴" },
+        -- Pretest UI buffer keys (shown only when the buffer-local mapping exists)
+        {
+          real = true,
+          { "<C-n>", desc = "Next testcase", mode = { "n", "i" }, icon = "󰑐" },
+          { "<C-p>", desc = "Previous testcase", mode = { "n", "i" }, icon = "󰑐" },
+          { "<Tab>", desc = "Next section", mode = { "n", "i" }, icon = "󰘳" },
+          { "<S-Tab>", desc = "Previous section", mode = { "n", "i" }, icon = "󰘵" },
+          { "<S-CR>", desc = "Run all testcases", icon = "󰐊" },
+          { "<CR>", desc = "Run current testcase", icon = "󰑮" },
+          { "g<S-CR>", desc = "Run all (no compile)", icon = "󰓦" },
+          { "g<CR>", desc = "Run current (no compile)", icon = "󰑮" },
+          { "<C-c>", desc = "Stop run", icon = "󰓛" },
+          { "s", desc = "Stop run", icon = "󰓛" },
+          { "q", desc = "Close UI", icon = "󰅖" },
+        },
       },
     },
   },
 }
 ```
 
-With `optional = true`, the spec is merged into your existing which-key spec. Without lazy.nvim, pass the same table to `require("which-key").add({ ... })`.
+With `optional = true`, the spec is merged into your existing which-key spec. Without lazy.nvim, pass the same table to `require("which-key").add({ ... })`. If you remap UI keys through [`ui_keys`](configuration.md#ui_keys), update the `real = true` block to match.
 
 ## Verifying the install
 
