@@ -608,17 +608,22 @@ end
 ---@return string|nil hl
 local function format_case_line(i, n, idx, result)
   local width = #tostring(math.max(n, 1))
-  local num
+  local digits = tostring(i)
+  local pad = width - #digits
+  -- Pad outside the brackets so they hug the digits while the units column stays aligned.
+  local num, num_col
   if i == idx then
-    num = string.format("[%s]", string.format("%" .. width .. "d", i))
+    num = string.rep(" ", pad) .. "[" .. digits .. "]"
+    num_col = pad
   else
-    num = string.format(" %s ", string.format("%" .. width .. "d", i))
+    num = string.rep(" ", pad + 1) .. digits .. " "
+    num_col = 0
   end
 
   local verdict = result and result.verdict or nil
   local show = verdict and verdict ~= "Pending"
   if not show then
-    return num, 0, #num, nil, nil, verdict_hl(verdict)
+    return num, num_col, #num, nil, nil, verdict_hl(verdict)
   end
 
   -- Pad so time always starts at the same column, and reason starts at the
@@ -637,7 +642,7 @@ local function format_case_line(i, n, idx, result)
   end
   local line = num .. " " .. verdict_s .. time_s .. reason_s
   local vcol = #num + 1
-  return line, 0, #num, vcol, vcol + #verdict, verdict_hl(verdict)
+  return line, num_col, #num, vcol, vcol + #verdict, verdict_hl(verdict)
 end
 
 ---@param buf integer
@@ -705,7 +710,7 @@ local function apply_header_marks(buf, layout, idx, hint_marks)
         hl_group = hl,
       })
     elseif hl and (not result or result.verdict == "Pending" or result.verdict == "Running") then
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, num_col, {
+      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, 0, {
         end_col = #line,
         hl_group = hl,
       })
