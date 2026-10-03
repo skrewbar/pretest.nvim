@@ -39,6 +39,16 @@ Do not pull online submit or custom checkers into these modules.
 - Stderr section is shown only when non-empty.
 - Runtime Error section is shown only when the current case verdict is RE.
 
+## UI rendering
+
+- `render_all()` only when windows open or the source/problem changes. Otherwise update just the affected parts: `patch_header({...})` for fixed-row header lines, `render_header()` when the row count or hint wrapping changes, `load_edit_bufs()` when the visible case changes, `refresh_result_view()` for Output/RE/Stderr + layout.
+- Do not rewrite Input/Expected from run callbacks; that drops unsaved edits, cursor, and undo.
+- `render_layout()` skips window calls while its layout key is unchanged and does nothing while the UI is closed.
+
+## Testing
+
+- `nvim --headless -u NONE -i NONE -l tests/ui_smoke.lua` — dependency-free UI smoke tests (runner stubbed). Exit code 0 means all passed. Run after changing `ui.lua`.
+
 ## Coding conventions
 
 - Lua targeting Neovim 0.10+ (`vim.system`, `vim.fs`, `vim.notify`).

@@ -21,6 +21,10 @@ local M = {}
 ---@field closing boolean
 ---@field compile_stderr string
 ---@field compile_status "stopped"|nil
+---@field layout_key string|nil # last applied window layout; nil forces a re-layout
+---@field header_n integer|nil # testcase count at the last full header render
+---@field header_rows integer|nil # header line count at the last full header render
+---@field drawn_index integer|nil # case index drawn with the `[n]` marker
 
 ---@type pretest.Session|nil
 local session = nil
@@ -646,21 +650,28 @@ local function format_case_line(i, n, idx, result)
 end
 
 ---@param buf integer
----@param layout pretest.HeaderLayout
----@param idx integer
----@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
-local function apply_header_marks(buf, layout, idx, hint_marks)
-  vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, 0, -1)
+---@param row integer
+---@return string
+local function buf_line(buf, row)
+  return vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+end
 
-  local sep_line = vim.api.nvim_buf_get_lines(buf, layout.sep_row, layout.sep_row + 1, false)[1] or ""
+---@param buf integer
+---@param layout pretest.HeaderLayout
+local function mark_sep_row(buf, layout)
+  local sep_line = buf_line(buf, layout.sep_row)
   if sep_line ~= "" then
     vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.sep_row, 0, {
       end_col = #sep_line,
       hl_group = "PretestSep",
     })
   end
+end
 
-  local limits_line = vim.api.nvim_buf_get_lines(buf, layout.limits_row, layout.limits_row + 1, false)[1] or ""
+---@param buf integer
+---@param layout pretest.HeaderLayout
+local function mark_limits_row(buf, layout)
+  local limits_line = buf_line(buf, layout.limits_row)
   local bar_col = limits_line:find("│", 1, true)
   if bar_col then
     -- find() returns 1-based byte index of the first byte of │
@@ -670,61 +681,90 @@ local function apply_header_marks(buf, layout, idx, hint_marks)
       hl_group = "PretestSep",
     })
   end
+end
 
-  local label_line = vim.api.nvim_buf_get_lines(buf, layout.cases_label_row, layout.cases_label_row + 1, false)[1] or ""
-  if #label_line > #CASES_LABEL then
-    local suffix = compile_phase_suffix()
-    local count_end = #label_line
-    if suffix then
-      local suffix_col = #label_line - #suffix
-      count_end = suffix_col - 2 -- two spaces before the suffix
-      local suffix_hl = suffix == COMPILING_LABEL and "PretestRunning" or "PretestStopped"
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, suffix_col, {
-        end_col = #label_line,
-        hl_group = suffix_hl,
-      })
-    end
-    if count_end > #CASES_LABEL then
-      local _, _, summary_hl = ac_summary()
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, #CASES_LABEL, {
-        end_col = count_end,
-        hl_group = summary_hl,
-      })
-    end
+---@param buf integer
+---@param layout pretest.HeaderLayout
+local function mark_label_row(buf, layout)
+  local label_line = buf_line(buf, layout.cases_label_row)
+  if #label_line <= #CASES_LABEL then
+    return
   end
+  local suffix = compile_phase_suffix()
+  local count_end = #label_line
+  if suffix then
+    local suffix_col = #label_line - #suffix
+    count_end = suffix_col - 2 -- two spaces before the suffix
+    local suffix_hl = suffix == COMPILING_LABEL and "PretestRunning" or "PretestStopped"
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, suffix_col, {
+      end_col = #label_line,
+      hl_group = suffix_hl,
+    })
+  end
+  if count_end > #CASES_LABEL then
+    local _, _, summary_hl = ac_summary()
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.cases_label_row, #CASES_LABEL, {
+      end_col = count_end,
+      hl_group = summary_hl,
+    })
+  end
+end
 
-  local n = layout.n
-  for i = 1, n do
-    local row = layout.cases_start + i - 1
-    local result = session.results[i]
-    local line, num_col, num_end, vcol, vend, hl = format_case_line(i, n, idx, result)
-    if i == idx then
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, num_col, {
-        end_col = num_end,
-        hl_group = "PretestCurrent",
-      })
-    end
-    if vcol and vend and hl then
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, vcol, {
-        end_col = vend,
-        hl_group = hl,
-      })
-    elseif hl and (not result or result.verdict == "Pending" or result.verdict == "Running") then
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, 0, {
-        end_col = #line,
-        hl_group = hl,
-      })
-    end
+---@param buf integer
+---@param layout pretest.HeaderLayout
+---@param i integer
+---@param idx integer
+local function mark_case_row(buf, layout, i, idx)
+  local row = layout.cases_start + i - 1
+  local result = session.results[i]
+  local line, num_col, num_end, vcol, vend, hl = format_case_line(i, layout.n, idx, result)
+  if i == idx then
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, num_col, {
+      end_col = num_end,
+      hl_group = "PretestCurrent",
+    })
   end
+  if vcol and vend and hl then
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, vcol, {
+      end_col = vend,
+      hl_group = hl,
+    })
+  elseif hl and (not result or result.verdict == "Pending" or result.verdict == "Running") then
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, row, 0, {
+      end_col = #line,
+      hl_group = hl,
+    })
+  end
+end
 
-  if layout.hint_base and hint_marks then
-    for _, m in ipairs(hint_marks) do
-      vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.hint_base + m.row, m.col, {
-        end_col = m.end_col,
-        hl_group = m.hl,
-      })
-    end
+---@param buf integer
+---@param layout pretest.HeaderLayout
+---@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
+local function mark_hint_rows(buf, layout, hint_marks)
+  if not layout.hint_base or not hint_marks then
+    return
   end
+  for _, m in ipairs(hint_marks) do
+    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.hint_base + m.row, m.col, {
+      end_col = m.end_col,
+      hl_group = m.hl,
+    })
+  end
+end
+
+---@param buf integer
+---@param layout pretest.HeaderLayout
+---@param idx integer
+---@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
+local function apply_header_marks(buf, layout, idx, hint_marks)
+  vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, 0, -1)
+  mark_sep_row(buf, layout)
+  mark_limits_row(buf, layout)
+  mark_label_row(buf, layout)
+  for i = 1, layout.n do
+    mark_case_row(buf, layout, i, idx)
+  end
+  mark_hint_rows(buf, layout, hint_marks)
 end
 
 function M.get_session()
@@ -757,6 +797,7 @@ function M.close()
   end
   session.winids = {}
   session.main_win = nil
+  session.layout_key = nil
   session.closing = false
 end
 
@@ -1009,8 +1050,21 @@ local function header_sep_line()
   return string.rep("─", header_sep_width())
 end
 
+---@return string
+local function name_line()
+  return string.format("%s", session.problem.name or "Pretest")
+end
+
+---@return string
+local function limits_line()
+  local tl = session.problem.timeLimit or config.options.default_time_limit
+  local ml = session.problem.memoryLimit
+  return string.format("TL %dms │ ML %dMB", tl, ml)
+end
+
 ---Rebuild header buffer (name, cases, wrapped hints, separator).
-local function write_header()
+---Use when the row count or hint wrapping may change; otherwise `patch_header`.
+local function render_header()
   if not session or not session.bufs.header or not vim.api.nvim_buf_is_valid(session.bufs.header) then
     return
   end
@@ -1022,12 +1076,10 @@ local function write_header()
     hint_lines, hint_marks = build_hint_lines(width)
   end
   local layout = header_layout(n, #hint_lines)
-  local tl = session.problem.timeLimit or config.options.default_time_limit
-  local ml = session.problem.memoryLimit
 
   local header = {
-    string.format("%s", session.problem.name or "Pretest"),
-    string.format("TL %dms │ ML %dMB", tl, ml),
+    name_line(),
+    limits_line(),
     header_sep_line(),
     format_cases_label(),
   }
@@ -1046,6 +1098,85 @@ local function write_header()
   vim.bo[session.bufs.header].modifiable = false
   vim.bo[session.bufs.header].modified = false
   apply_header_marks(session.bufs.header, layout, idx, hint_marks)
+  session.header_n = n
+  session.header_rows = #header
+  session.drawn_index = idx
+end
+
+---@class pretest.HeaderPatch
+---@field name? boolean
+---@field limits? boolean
+---@field summary? boolean # "Testcases AC/total" (+ Compiling/Stopped)
+---@field cases? integer[] # case rows to redraw
+---@field index? boolean # move the `[n]` marker from the drawn row to `session.index`
+
+---Rewrite only the listed header rows and their extmarks. Falls back to a
+---full `render_header` when the row structure no longer matches.
+---@param spec pretest.HeaderPatch
+local function patch_header(spec)
+  if not session then
+    return
+  end
+  local buf = session.bufs.header
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+  local n = #session.problem.tests
+  if n ~= session.header_n or vim.api.nvim_buf_line_count(buf) ~= session.header_rows then
+    render_header()
+    return
+  end
+  local layout = header_layout(n)
+  local idx = session.index
+
+  ---@type table<integer, fun(): string>
+  local rows = {}
+  if spec.name then
+    rows[layout.name_row] = name_line
+  end
+  if spec.limits then
+    rows[layout.limits_row] = limits_line
+  end
+  if spec.summary then
+    rows[layout.cases_label_row] = format_cases_label
+  end
+  local function add_case(i)
+    if i and i >= 1 and i <= n then
+      rows[layout.cases_start + i - 1] = function()
+        return (format_case_line(i, n, idx, session.results[i]))
+      end
+    end
+  end
+  for _, i in ipairs(spec.cases or {}) do
+    add_case(i)
+  end
+  if spec.index then
+    add_case(session.drawn_index)
+    add_case(idx)
+  end
+
+  vim.bo[buf].modifiable = true
+  for row, build in pairs(rows) do
+    local old = buf_line(buf, row)
+    local new = build()
+    vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, row, row + 1)
+    if new ~= old then
+      -- set_text keeps the row (and any cursor on it) in place.
+      vim.api.nvim_buf_set_text(buf, row, 0, row, #old, { new })
+    end
+    if row == layout.limits_row then
+      mark_limits_row(buf, layout)
+    elseif row == layout.cases_label_row then
+      mark_label_row(buf, layout)
+    elseif row >= layout.cases_start then
+      mark_case_row(buf, layout, row - layout.cases_start + 1, idx)
+    end
+  end
+  vim.bo[buf].modifiable = false
+  vim.bo[buf].modified = false
+  if spec.index then
+    session.drawn_index = idx
+  end
 end
 
 local function prune_winids()
@@ -1211,21 +1342,37 @@ local function apply_float_layout(re_lines, err_lines)
   end
 end
 
-local function render()
-  if not session then
+---Run `fn` with `session.applying` set, restoring the previous value (nesting-safe).
+---Blocks synchronous UI autocmds (e.g. WinClosed) from reacting to our own edits.
+---@param fn fun()
+local function with_applying(fn)
+  local s = session
+  if not s then
     return
   end
-  session.applying = true
+  local prev = s.applying
+  s.applying = true
+  local ok, err = pcall(fn)
+  s.applying = prev
+  if not ok then
+    error(err, 0)
+  end
+end
 
-  write_header()
+---@class pretest.ResultView
+---@field out string[]
+---@field re string[]|nil # nil hides the Runtime Error section
+---@field err string[]|nil # nil hides the Stderr section
 
+---Body lines for Output / Runtime Error / Stderr of the current case.
+---@return pretest.ResultView
+local function result_view()
   local result = current_result()
   local verdict = result and result.verdict or "Pending"
-  local out_lines = result and util.split_lines(result.stdout) or { "" }
-  local re_lines = nil
+  local out = result and util.split_lines(result.stdout) or { "" }
+  local re = nil
   if verdict == "RE" then
-    local detail = (result and result.reason_detail) or "runtime error"
-    re_lines = util.split_lines(detail)
+    re = util.split_lines((result and result.reason_detail) or "runtime error")
   end
   local err_text = ""
   if result and result.stderr and result.stderr ~= "" then
@@ -1233,85 +1380,142 @@ local function render()
   elseif session.compile_stderr and session.compile_stderr ~= "" and verdict == "CE" then
     err_text = session.compile_stderr
   end
-  local err_lines = err_text ~= "" and util.split_lines(err_text) or nil
+  local err = err_text ~= "" and util.split_lines(err_text) or nil
+  return { out = out, re = re, err = err }
+end
 
-  load_edit_bufs()
-
-  set_lines(session.bufs.output, out_lines)
-  vim.bo[session.bufs.output].modifiable = false
-
-  if re_lines then
-    set_lines(session.bufs.re, re_lines)
-    vim.bo[session.bufs.re].modifiable = false
-  else
-    set_lines(session.bufs.re, { "" })
-    vim.bo[session.bufs.re].modifiable = false
+---@param buf integer
+---@param body string[]
+local function set_readonly_body(buf, body)
+  -- Skip identical bodies so cursor/scroll in the window survive unrelated updates.
+  if not vim.deep_equal(vim.api.nvim_buf_get_lines(buf, 0, -1, false), body) then
+    set_lines(buf, body)
   end
+  apply_empty_eol_marks(buf)
+  vim.bo[buf].modifiable = false
+end
 
-  if err_lines then
-    set_lines(session.bufs.stderr, err_lines)
-    vim.bo[session.bufs.stderr].modifiable = false
-  else
-    set_lines(session.bufs.stderr, { "" })
-    vim.bo[session.bufs.stderr].modifiable = false
+---Fill Output / Runtime Error / Stderr buffers for the current case.
+---@param view pretest.ResultView|nil
+local function render_result(view)
+  if not session then
+    return
   end
+  view = view or result_view()
+  set_readonly_body(session.bufs.output, view.out)
+  set_readonly_body(session.bufs.re, view.re or { "" })
+  set_readonly_body(session.bufs.stderr, view.err or { "" })
+end
 
-  for _, buf in ipairs({
-    session.bufs.output,
-    session.bufs.re,
-    session.bufs.stderr,
-  }) do
-    apply_empty_eol_marks(buf)
+---Open/close RE and Stderr windows and size the sections. Skips window calls
+---when nothing that affects geometry changed since the last layout.
+---@param opts { force?: boolean, view?: pretest.ResultView }|nil
+local function render_layout(opts)
+  if not session or not M.is_open() then
+    return
   end
-
-  if session.ui_mode == "sidebar" then
-    for _, win in ipairs(session.winids) do
-      if win and vim.api.nvim_win_is_valid(win) then
-        local buf = vim.api.nvim_win_get_buf(win)
-        if buf == session.bufs.input then
-          set_winbar(win, "Input")
-        elseif buf == session.bufs.expected then
-          set_winbar(win, "Expected")
-        elseif buf == session.bufs.output then
-          set_winbar(win, "Output")
-        elseif buf == session.bufs.re then
-          set_winbar(win, "Runtime Error")
-        elseif buf == session.bufs.stderr then
-          set_winbar(win, "Stderr")
-        elseif buf == session.bufs.header then
-          set_winbar(win, "Pretest")
-        end
+  opts = opts or {}
+  local view = opts.view or result_view()
+  local re_h = view.re and math.min(4, #view.re + 1) or 0
+  local stderr_h = view.err and math.min(8, #view.err + 1) or 0
+  local key = table.concat({
+    session.ui_mode,
+    re_h,
+    stderr_h,
+    header_content_min(#session.problem.tests),
+    vim.o.columns,
+    vim.o.lines,
+  }, ":")
+  if not opts.force and session.layout_key == key then
+    return
+  end
+  with_applying(function()
+    if session.ui_mode == "sidebar" then
+      if view.re then
+        ensure_sidebar_extra_win("re", re_h)
+      else
+        hide_sidebar_extra_win("re")
       end
+      if view.err then
+        ensure_sidebar_extra_win("stderr", stderr_h)
+      else
+        hide_sidebar_extra_win("stderr")
+      end
+      apply_sidebar_section_heights(re_h + stderr_h)
+    else
+      apply_float_layout(view.re, view.err)
     end
+  end)
+  session.layout_key = key
+end
 
-    local extra_h = 0
-    if re_lines then
-      local re_h = math.min(4, #re_lines + 1)
-      extra_h = extra_h + re_h
-      ensure_sidebar_extra_win("re", re_h)
-    else
-      hide_sidebar_extra_win("re")
-    end
-    if err_lines then
-      local stderr_h = math.min(8, #err_lines + 1)
-      extra_h = extra_h + stderr_h
-      ensure_sidebar_extra_win("stderr", stderr_h)
-    else
-      hide_sidebar_extra_win("stderr")
-    end
-    apply_sidebar_section_heights(extra_h)
-  else
-    apply_float_layout(re_lines, err_lines)
-    for _, win in ipairs(session.winids) do
-      if win and vim.api.nvim_win_is_valid(win) then
-        -- scope=local: winbar is global-or-local; :set would leak into new floats.
+---Result buffers, then geometry (only if it changed).
+local function refresh_result_view()
+  local view = result_view()
+  render_result(view)
+  render_layout({ view = view })
+end
+
+local WINBARS = {
+  input = "Input",
+  expected = "Expected",
+  output = "Output",
+  re = "Runtime Error",
+  stderr = "Stderr",
+  header = "Pretest",
+}
+
+local function apply_winbars()
+  if not session then
+    return
+  end
+  local sidebar = session.ui_mode == "sidebar"
+  for _, win in ipairs(session.winids) do
+    if win and vim.api.nvim_win_is_valid(win) then
+      if sidebar then
+        local buf = vim.api.nvim_win_get_buf(win)
+        for key, title in pairs(WINBARS) do
+          if session.bufs[key] == buf then
+            set_winbar(win, title)
+          end
+        end
+      else
+        -- Floats use border titles.
         set_winbar(win, "")
       end
     end
   end
-  write_header()
+end
 
-  session.applying = false
+---Redraw every section. Used when windows open or the problem/source changes.
+local function render_all()
+  if not session then
+    return
+  end
+  with_applying(function()
+    load_edit_bufs()
+    local view = result_view()
+    render_result(view)
+    apply_winbars()
+    render_layout({ force = true, view = view })
+    -- After layout so the separator uses the final header width.
+    render_header()
+  end)
+end
+
+---Switch the visible testcase: save edits, move the `[n]` marker, reload bodies.
+---@param index integer
+local function show_case(index)
+  if not session then
+    return
+  end
+  M.flush_edits()
+  session.index = index
+  with_applying(function()
+    patch_header({ index = true })
+    load_edit_bufs()
+    refresh_result_view()
+  end)
 end
 
 local UI_KEY_ACTIONS = {
@@ -1415,9 +1619,7 @@ local function setup_buf_autocmds()
       if index == session.index then
         return
       end
-      M.flush_edits()
-      session.index = index
-      render()
+      show_case(index)
       -- Keep focus on the selected case row in the header.
       session.applying = true
       pcall(vim.api.nvim_win_set_cursor, win, { layout.cases_start + index, 0 })
@@ -1448,36 +1650,13 @@ local function setup_buf_autocmds()
           return
         end
       end
-      write_header()
+      render_header()
       local width = vim.api.nvim_win_get_width(header_win)
       if width == last_header_wrap_width then
         return
       end
       last_header_wrap_width = width
-      session.applying = true
-      if session.ui_mode == "sidebar" then
-        local extra_h = 0
-        local rw = find_win_for_buf(session.bufs.re)
-        if rw then
-          extra_h = extra_h + vim.api.nvim_win_get_height(rw)
-        end
-        local sw = find_win_for_buf(session.bufs.stderr)
-        if sw then
-          extra_h = extra_h + vim.api.nvim_win_get_height(sw)
-        end
-        apply_sidebar_section_heights(extra_h)
-      else
-        local re_lines = nil
-        if find_win_for_buf(session.bufs.re) then
-          re_lines = vim.api.nvim_buf_get_lines(session.bufs.re, 0, -1, false)
-        end
-        local err_lines = nil
-        if find_win_for_buf(session.bufs.stderr) then
-          err_lines = vim.api.nvim_buf_get_lines(session.bufs.stderr, 0, -1, false)
-        end
-        apply_float_layout(re_lines, err_lines)
-      end
-      session.applying = false
+      render_layout({ force = true })
     end,
   })
 end
@@ -1554,6 +1733,7 @@ end
 local function open_layout(mode)
   session.ui_mode = mode
   session.winids = {}
+  session.layout_key = nil
   if mode == "float" then
     open_float_stack()
   else
@@ -1660,7 +1840,7 @@ follow_visible_source = function()
     return
   end
   switch_source(bufnr, abs, ft)
-  render()
+  render_all()
 end
 
 ---@param src_bufnr integer|nil
@@ -1699,7 +1879,7 @@ function M.ensure_session(src_bufnr)
     local was_open = M.is_open()
     switch_source(src_bufnr, abs, ft)
     if was_open then
-      render()
+      render_all()
     end
     return session
   end
@@ -1755,7 +1935,7 @@ function M.show()
   s.compile_status = nil
   open_layout(s.ui_mode)
   setup_buf_autocmds()
-  render()
+  render_all()
   for _, win in ipairs(s.winids) do
     if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
@@ -1784,7 +1964,7 @@ function M.toggle_layout()
     M.close()
     open_layout(next_mode)
     setup_buf_autocmds()
-    render()
+    render_all()
   else
     util.notify("UI mode: " .. next_mode)
   end
@@ -1793,7 +1973,11 @@ end
 function M.toggle_hints()
   preferred_show_hints = not get_show_hints()
   if M.is_open() then
-    render()
+    -- Row count changes; header min height is part of the layout key.
+    with_applying(function()
+      render_header()
+      render_layout()
+    end)
   end
 end
 
@@ -1801,9 +1985,7 @@ function M.next_case()
   if not session or #session.problem.tests == 0 then
     return
   end
-  M.flush_edits()
-  session.index = session.index % #session.problem.tests + 1
-  render()
+  show_case(session.index % #session.problem.tests + 1)
   sync_header_cursor()
 end
 
@@ -1811,12 +1993,11 @@ function M.prev_case()
   if not session or #session.problem.tests == 0 then
     return
   end
-  M.flush_edits()
-  session.index = session.index - 1
-  if session.index < 1 then
-    session.index = #session.problem.tests
+  local index = session.index - 1
+  if index < 1 then
+    index = #session.problem.tests
   end
-  render()
+  show_case(index)
   sync_header_cursor()
 end
 
@@ -1838,9 +2019,7 @@ function M.goto_case(index)
     util.notify("invalid testcase index", vim.log.levels.ERROR)
     return
   end
-  M.flush_edits()
-  s.index = index
-  render()
+  show_case(index)
   for _, win in ipairs(s.winids) do
     if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == s.bufs.input then
       vim.api.nvim_set_current_win(win)
@@ -1862,7 +2041,12 @@ function M.add_testcase()
   if not M.is_open() then
     M.show()
   else
-    render()
+    -- Row count changed and the new case is now visible.
+    with_applying(function()
+      render_header()
+      load_edit_bufs()
+      refresh_result_view()
+    end)
   end
 end
 
@@ -1916,7 +2100,7 @@ function M.edit_limits()
       s.problem.memoryLimit = mem_n
       prob.save(s.problem, s.prob_path)
       if M.is_open() then
-        render()
+        patch_header({ limits = true })
       end
     end)
   end)
@@ -1936,7 +2120,7 @@ function M.edit_name()
     s.problem.name = name
     prob.save(s.problem, s.prob_path)
     if M.is_open() then
-      render()
+      patch_header({ name = true })
     end
   end)
 end
@@ -2005,8 +2189,13 @@ function M.delete_testcase(index)
     s.index = math.min(index, #s.problem.tests)
   end
   prob.save(s.problem, s.prob_path)
+  -- Even with the UI closed: flush_edits later reads these buffers into tests[index].
+  load_edit_bufs()
   if M.is_open() then
-    render()
+    with_applying(function()
+      render_header()
+      refresh_result_view()
+    end)
   end
 end
 
@@ -2074,25 +2263,44 @@ function M.run(indices, do_compile)
       stderr = "",
     }
   end
-  render()
+  -- Always refresh the result view: clearing compile_stderr can hide a CE Stderr.
+  with_applying(function()
+    patch_header({ cases = indices, summary = true })
+    refresh_result_view()
+  end)
 
   local run_src = s.src_path
+
+  ---Update the header rows for `cases` (+ summary) and, when the visible case
+  ---is among them, its result sections. No-op unless this source's UI is open.
+  ---@param live boolean
+  ---@param cases integer[]|nil
+  ---@param result_changed boolean|nil
+  local function update(live, cases, result_changed)
+    if not live or not M.is_open() then
+      return
+    end
+    with_applying(function()
+      patch_header({ cases = cases, summary = true })
+      if result_changed then
+        refresh_result_view()
+      end
+    end)
+  end
+
   runner.run_tests(s.src_path, s.filetype, s.problem, indices, do_compile, {
     on_compile_start = function()
       local st, live = state_for(run_src)
       st.compile_stderr = ""
-      if live then
-        render()
-      end
+      update(live)
     end,
     on_compile_done = function(ok, stderr)
       local st, live = state_for(run_src)
       if not ok then
         st.compile_stderr = stderr
       end
-      if live then
-        render()
-      end
+      -- A visible CE case shows compile stderr even if it is not in this run.
+      update(live, nil, not ok)
     end,
     on_case_start = function(i)
       local st, live = state_for(run_src)
@@ -2101,22 +2309,16 @@ function M.run(indices, do_compile)
         stdout = "",
         stderr = "",
       }
-      if live then
-        render()
-      end
+      update(live, { i }, live and i == session.index)
     end,
     on_case_done = function(i, result)
       local st, live = state_for(run_src)
       st.results[i] = result
-      if live then
-        render()
-      end
+      update(live, { i }, live and i == session.index)
     end,
     on_all_done = function()
       local _, live = state_for(run_src)
-      if live then
-        render()
-      end
+      update(live)
     end,
   })
 end
@@ -2132,7 +2334,11 @@ function M.stop()
     return
   end
   if M.is_open() then
-    render()
+    with_applying(function()
+      -- Any Running row may have become Stopped; rows are cheap to patch.
+      patch_header({ cases = util.all_indices(#s.problem.tests), summary = true })
+      refresh_result_view()
+    end)
   end
 end
 
@@ -2154,13 +2360,13 @@ local function ensure_ui_open()
     return
   end
   if M.is_open() then
-    render()
+    render_all()
     focus_input_win()
     return
   end
   open_layout(session.ui_mode)
   setup_buf_autocmds()
-  render()
+  render_all()
   focus_input_win()
 end
 
@@ -2422,7 +2628,7 @@ function M.move_source(dest, opts)
 
   finish_applying()
   if live_session and M.is_open() then
-    render()
+    render_all()
   end
   if err then
     util.notify(
