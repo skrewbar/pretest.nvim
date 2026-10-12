@@ -15,6 +15,7 @@ local M = {}
 ---@field results table<integer, pretest.CaseResult>
 ---@field ui_mode "sidebar"|"float"
 ---@field winids integer[]
+---@field win_bufs table<integer, integer> # UI window → the UI buffer it must keep showing
 ---@field bufs { header: integer, input: integer, expected: integer, output: integer, re: integer, stderr: integer }
 ---@field applying boolean
 ---@field closing boolean
@@ -32,8 +33,11 @@ local session = nil
 ---@type table<string, { results: table<integer, pretest.CaseResult>, index: integer, compile_stderr: string }>
 local parked = {}
 
----Assigned after helpers exist; BufEnter in setup() closes over this upvalue.
+---Assigned after helpers exist; autocmds in setup() close over these upvalues.
 local follow_visible_source
+local guard_ui_win
+local before_quit
+local after_win_closed
 
 ---Remembers last chosen UI mode for this Neovim session (falls back to config.ui).
 ---@type "sidebar"|"float"|nil
@@ -138,6 +142,48 @@ local function configure_win(win, kind)
   if session and session.ui_mode == "float" then
     set_winbar(win, "")
   end
+end
+
+---Window options configure_win / set_winbar change.
+local UI_WIN_OPTS = {
+  "number",
+  "relativenumber",
+  "wrap",
+  "signcolumn",
+  "foldcolumn",
+  "list",
+  "listchars",
+  "cursorline",
+  "winfixwidth",
+  "winbar",
+}
+
+---@param win integer
+---@return table<string, any>
+local function get_win_opts(win)
+  local opts = {}
+  for _, name in ipairs(UI_WIN_OPTS) do
+    opts[name] = vim.api.nvim_get_option_value(name, { win = win, scope = "local" })
+  end
+  return opts
+end
+
+---@param win integer
+---@param opts table<string, any>
+local function set_win_opts(win, opts)
+  for name, value in pairs(opts) do
+    pcall(vim.api.nvim_set_option_value, name, value, { win = win, scope = "local" })
+  end
+end
+
+---Undo configure_win on a window that stops being part of the UI.
+---@param win integer
+local function reset_win_opts(win)
+  local opts = {}
+  for _, name in ipairs(UI_WIN_OPTS) do
+    opts[name] = vim.api.nvim_get_option_value(name, { scope = "global" })
+  end
+  set_win_opts(win, opts)
 end
 
 ---Mark completely empty lines with an eol indicator (listchars eol would mark every line).
@@ -421,13 +467,23 @@ function M.setup()
       vim.schedule(follow_visible_source)
     end,
   })
+  -- Synchronous (no schedule) so a buffer opened in a UI window never gets drawn there.
+  vim.api.nvim_create_autocmd("BufWinEnter", {
+    group = group,
+    nested = true,
+    callback = function(ev)
+      guard_ui_win(ev.buf)
+    end,
+  })
   vim.api.nvim_create_autocmd("QuitPre", {
     group = group,
-    callback = function()
+    callback = function(ev)
       if not session then
         return
       end
       if not is_ui_buf(vim.api.nvim_get_current_buf()) then
+        -- <abuf> is the buffer of the window being quit (also for `:{N}quit`).
+        before_quit(ev.buf)
         return
       end
       M.flush_edits()
@@ -447,6 +503,18 @@ function M.setup()
           return
         end
       end
+      if not closed or not M.is_open() or not vim.api.nvim_win_is_valid(closed) then
+        return
+      end
+      -- Floats never hold the source, so closing one cannot change where it is shown.
+      if vim.api.nvim_win_get_config(closed).relative ~= "" then
+        return
+      end
+      -- The window is still open here; decide once the layout has settled.
+      local tab = vim.api.nvim_win_get_tabpage(closed)
+      vim.schedule(function()
+        after_win_closed(tab)
+      end)
     end,
   })
 end
@@ -797,6 +865,7 @@ function M.close()
     end
   end
   session.winids = {}
+  session.win_bufs = {}
   session.layout_key = nil
   session.closing = false
 end
@@ -1190,6 +1259,19 @@ local function prune_winids()
     end
   end
   session.winids = kept
+  for win in pairs(session.win_bufs) do
+    if not vim.api.nvim_win_is_valid(win) then
+      session.win_bufs[win] = nil
+    end
+  end
+end
+
+---Register a UI window and the UI buffer it must keep showing.
+---@param win integer
+---@param buf integer
+local function track_win(win, buf)
+  table.insert(session.winids, win)
+  session.win_bufs[win] = buf
 end
 
 local EXTRA_TITLES = { re = "Runtime Error", stderr = "Stderr" }
@@ -1227,7 +1309,7 @@ local function ensure_float_extra_win(key, height, width, row, col)
     zindex = key == "re" and 54 or 55,
   })
   configure_win(win, "body")
-  table.insert(session.winids, win)
+  track_win(win, buf)
   return win
 end
 
@@ -1268,7 +1350,7 @@ local function ensure_sidebar_extra_win(key, height)
   configure_win(win, "body")
   pcall(vim.api.nvim_win_set_height, win, height)
   set_winbar(win, EXTRA_TITLES[key])
-  table.insert(session.winids, win)
+  track_win(win, buf)
   if prev and vim.api.nvim_win_is_valid(prev) then
     pcall(vim.api.nvim_set_current_win, prev)
   end
@@ -1671,7 +1753,7 @@ local function open_sidebar_column()
   vim.api.nvim_win_set_width(root, resolved_sidebar_width())
   vim.api.nvim_win_set_buf(root, session.bufs.header)
   configure_win(root, "header")
-  table.insert(session.winids, root)
+  track_win(root, session.bufs.header)
 
   local sections = {
     { buf = session.bufs.input },
@@ -1683,7 +1765,7 @@ local function open_sidebar_column()
     local win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(win, sec.buf)
     configure_win(win, "body")
-    table.insert(session.winids, win)
+    track_win(win, sec.buf)
   end
 
   apply_sidebar_section_heights(0)
@@ -1721,7 +1803,7 @@ local function open_float_stack()
       zindex = 50 + i,
     })
     configure_win(win, sec.key == "header" and "header" or "body")
-    table.insert(session.winids, win)
+    track_win(win, sec.buf)
     y = y + h + 2
   end
 end
@@ -1729,6 +1811,7 @@ end
 local function open_layout(mode)
   session.ui_mode = mode
   session.winids = {}
+  session.win_bufs = {}
   session.layout_key = nil
   if mode == "float" then
     open_float_stack()
@@ -1816,6 +1899,31 @@ local function is_transient_buf(bufnr)
   return bt ~= ""
 end
 
+---@param bufnr integer
+---@return string|nil abs
+---@return string|nil ft
+local function source_of(bufnr)
+  local path, ft = util.source_from_buf(bufnr)
+  if not path or not util.supported_filetype(ft) then
+    return nil, nil
+  end
+  return util.abspath(path), ft
+end
+
+---Point the open UI at a visible source buffer.
+---@param bufnr integer
+---@param abs string
+---@param ft string
+local function adopt_source(bufnr, abs, ft)
+  if session.src_path == abs then
+    session.src_bufnr = bufnr
+    session.filetype = ft
+    return
+  end
+  switch_source(bufnr, abs, ft)
+  render_all()
+end
+
 follow_visible_source = function()
   if not session or not M.is_open() or session.applying then
     return
@@ -1824,19 +1932,197 @@ follow_visible_source = function()
   if is_transient_buf(bufnr) then
     return
   end
-  local path, ft = util.source_from_buf(bufnr)
-  if not path or not util.supported_filetype(ft) then
+  local abs, ft = source_of(bufnr)
+  if not abs then
     M.close()
     return
   end
-  local abs = util.abspath(path)
-  if session.src_path == abs then
-    session.src_bufnr = bufnr
-    session.filetype = ft
+  adopt_source(bufnr, abs, ft)
+end
+
+---@param win integer
+---@return boolean
+local function is_float_win(win)
+  return vim.api.nvim_win_get_config(win).relative ~= ""
+end
+
+---Non-UI, non-float windows of `tab`: where source buffers are edited.
+---@param tab integer
+---@return integer[]
+local function main_candidates(tab)
+  local wins = {}
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+    if not session.win_bufs[win] and not is_float_win(win) then
+      table.insert(wins, win)
+    end
+  end
+  return wins
+end
+
+---First open UI window; the header in sidebar mode (tracked first).
+---@return integer|nil
+local function first_ui_win()
+  for _, win in ipairs(session.winids) do
+    if vim.api.nvim_win_is_valid(win) then
+      return win
+    end
+  end
+  return nil
+end
+
+---@return integer|nil
+local function ui_tabpage()
+  local win = first_ui_win()
+  return win and vim.api.nvim_win_get_tabpage(win)
+end
+
+---Window that should receive a buffer opened inside `ui_win`.
+---@param ui_win integer
+---@return integer|nil
+local function pick_main_win(ui_win)
+  local cands = main_candidates(vim.api.nvim_win_get_tabpage(ui_win))
+  for _, win in ipairs(cands) do
+    if vim.api.nvim_win_get_buf(win) == session.src_bufnr then
+      return win
+    end
+  end
+  local prev = vim.fn.win_getid(vim.fn.winnr("#"))
+  if vim.tbl_contains(cands, prev) then
+    return prev
+  end
+  for _, win in ipairs(cands) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].buftype == "" then
+      return win
+    end
+  end
+  return cands[1]
+end
+
+---@param win integer
+---@param buf integer
+local function restore_ui_win(win, buf)
+  vim.api.nvim_win_set_buf(win, buf)
+  configure_win(win, buf == session.bufs.header and "header" or "body")
+  if session.ui_mode == "sidebar" then
+    for key, b in pairs(session.bufs) do
+      if b == buf then
+        set_winbar(win, WINBARS[key])
+      end
+    end
+  end
+end
+
+---A buffer was displayed in the current window: if that is a UI window, put the
+---UI buffer back and move the newcomer to the main window (e.g. bufferline clicks).
+---@param bufnr integer
+guard_ui_win = function(bufnr)
+  if not session or session.applying or session.closing or not M.is_open() then
     return
   end
-  switch_source(bufnr, abs, ft)
-  render_all()
+  -- BufWinEnter runs with the receiving window as the current window.
+  local win = vim.api.nvim_get_current_win()
+  local ui_buf = session.win_bufs[win]
+  if not ui_buf or bufnr == ui_buf or vim.api.nvim_win_get_buf(win) ~= bufnr then
+    return
+  end
+  if not vim.api.nvim_buf_is_valid(ui_buf) then
+    return
+  end
+  local dest
+  with_applying(function()
+    restore_ui_win(win, ui_buf)
+    if is_ui_buf(bufnr) then
+      return
+    end
+    dest = pick_main_win(win)
+    if not dest then
+      return
+    end
+    -- A buffer never shown in `dest` would inherit the UI window's options.
+    local opts = get_win_opts(dest)
+    vim.api.nvim_win_set_buf(dest, bufnr)
+    set_win_opts(dest, opts)
+  end)
+  if dest then
+    vim.api.nvim_set_current_win(dest)
+    vim.cmd.stopinsert()
+  end
+end
+
+---`:quit` is about to close the window showing `bufnr`. If only UI windows would
+---remain in the tab, close the UI first so the quit closes the tab / Neovim.
+---@param bufnr integer
+before_quit = function(bufnr)
+  if session.closing or not M.is_open() then
+    return
+  end
+  local tab = vim.api.nvim_get_current_tabpage()
+  if ui_tabpage() ~= tab then
+    return
+  end
+  local cands = main_candidates(tab)
+  if #cands == 1 and vim.api.nvim_win_get_buf(cands[1]) == bufnr then
+    M.close()
+  end
+end
+
+---Only UI windows are left: Neovim needs one window, so turn one of them into an
+---empty editing window and close the rest.
+local function replace_ui_with_empty()
+  local keep = first_ui_win()
+  if not keep or is_float_win(keep) then
+    M.close()
+    return
+  end
+  with_applying(function()
+    vim.api.nvim_win_set_buf(keep, vim.api.nvim_create_buf(true, false))
+    session.win_bufs[keep] = nil
+    session.winids = vim.tbl_filter(function(w)
+      return w ~= keep
+    end, session.winids)
+    reset_win_opts(keep)
+  end)
+  M.close()
+end
+
+---A non-UI window in `tab` was closed by something other than `:quit`.
+---@param tab integer
+after_win_closed = function(tab)
+  if not session or session.closing or not M.is_open() then
+    return
+  end
+  local ui_tab = ui_tabpage()
+  if ui_tab ~= tab then
+    return
+  end
+  local cands = main_candidates(ui_tab)
+  if #cands == 0 then
+    replace_ui_with_empty()
+    return
+  end
+  -- Focus landed in a normal window: its BufEnter → follow_visible_source decides.
+  local cur = vim.api.nvim_get_current_win()
+  if not session.win_bufs[cur] and not is_float_win(cur) then
+    return
+  end
+  -- Focus is in the UI (or a float), which follow_visible_source skips.
+  local pick
+  for _, win in ipairs(cands) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local abs, ft = source_of(buf)
+    if abs then
+      if buf == session.src_bufnr then
+        pick = { buf, abs, ft }
+        break
+      end
+      pick = pick or { buf, abs, ft }
+    end
+  end
+  if pick then
+    adopt_source(pick[1], pick[2], pick[3])
+  else
+    M.close()
+  end
 end
 
 ---@param src_bufnr integer|nil
@@ -1891,6 +2177,7 @@ function M.ensure_session(src_bufnr)
     results = {},
     ui_mode = get_preferred_ui(),
     winids = {},
+    win_bufs = {},
     bufs = {
       header = make_buf("pretest://header", false),
       input = make_buf("pretest://input", true),

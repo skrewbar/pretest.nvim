@@ -41,7 +41,10 @@ Do not pull online submit or custom checkers into these modules.
 
 ## UI windows
 
+- UI windows keep their buffers (`session.win_bufs`; register new UI windows with `track_win`). A buffer opened in a UI window (e.g. a bufferline click) is put back into the main window by the `BufWinEnter` guard.
 - Set UI window options window-locally (`vim.wo[win][0]` or `scope = "local"`); plain `vim.wo[win]` also rewrites the global values.
+- When a non-UI window closes but others remain, the UI follows a visible supported source, or closes if none is left.
+- When closing would leave only UI windows in the tab: `:quit`-family commands close the UI first in `QuitPre`, so the tab / Neovim closes. Other paths (`:close`, `<C-w>T`, `nvim_win_close`, …) turn one UI window into an empty buffer in `WinClosed`.
 
 ## UI rendering
 

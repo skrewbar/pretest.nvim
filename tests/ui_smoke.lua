@@ -467,6 +467,203 @@ case("WinResized redraws header only", function()
   check_header_full("after resize")
 end)
 
+-- UI windows keep their buffers / source window lifecycle -------------------
+
+---Let vim.schedule callbacks (BufEnter / WinClosed follow-ups) run.
+local function settle()
+  vim.wait(20, function()
+    return false
+  end)
+end
+
+---Load another source file as a hidden listed buffer.
+---@return integer buf, string path
+local function extra_source()
+  seq = seq + 1
+  local path = tmp .. "/s" .. seq .. ".cpp"
+  vim.fn.writefile({ "int main() {}" }, path)
+  local buf = vim.fn.bufadd(path)
+  vim.fn.bufload(buf)
+  vim.bo[buf].buflisted = true
+  vim.bo[buf].filetype = "cpp"
+  return buf, path
+end
+
+---First window of the current tab showing `buf`.
+local function win_of(buf)
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == buf then
+      return win
+    end
+  end
+end
+
+local function reset_windows()
+  pcall(ui.close)
+  vim.cmd("silent! tabonly")
+  vim.cmd("silent! only")
+  settle()
+end
+
+---Open `buf` in a new window above `win` and return to `win`.
+local function split_above(win, buf)
+  vim.api.nvim_set_current_win(win)
+  vim.cmd("aboveleft split")
+  local new = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(new, buf)
+  vim.api.nvim_set_current_win(win)
+  settle()
+  return new
+end
+
+case("buffer opened in a sidebar window moves to the source window", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local src_win = win_of(s.src_bufnr)
+  vim.wo[src_win].number = true
+  local other, other_path = extra_source()
+  local input_win = win_of(s.bufs.input)
+  vim.api.nvim_set_current_win(input_win)
+  vim.api.nvim_set_current_buf(other)
+  check_eq("Input window keeps Input", vim.api.nvim_win_get_buf(input_win), s.bufs.input)
+  check_eq("source window shows the new buffer", vim.api.nvim_win_get_buf(src_win), other)
+  check_eq("focus moves to the source window", vim.api.nvim_get_current_win(), src_win)
+  check("source window keeps its options", vim.wo[src_win].number and not vim.wo[src_win].list)
+  check_eq("Input winbar kept", vim.api.nvim_get_option_value("winbar", { win = input_win, scope = "local" }), "Input")
+  settle()
+  check("UI still open", ui.is_open())
+  check_eq("UI follows the new source", S().src_path, other_path)
+end)
+
+case("source buffer opened in the header window goes back to the source window", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local src_win = win_of(s.src_bufnr)
+  local header_win = win_of(s.bufs.header)
+  local index = S().index
+  vim.api.nvim_set_current_win(header_win)
+  vim.api.nvim_set_current_buf(s.src_bufnr)
+  check_eq("header window keeps the header", vim.api.nvim_win_get_buf(header_win), s.bufs.header)
+  check_eq("focus moves to the source window", vim.api.nvim_get_current_win(), src_win)
+  settle()
+  check("UI still open", ui.is_open())
+  check_eq("case selection unchanged", S().index, index)
+end)
+
+case("buffer opened in a float window moves to the editing window", function()
+  reset_windows()
+  local s = open_source(THREE, "float")
+  local src_win = win_of(s.src_bufnr)
+  local other, other_path = extra_source()
+  local input_win = win_of(s.bufs.input)
+  vim.api.nvim_set_current_win(input_win)
+  vim.api.nvim_set_current_buf(other)
+  check_eq("Input float keeps Input", vim.api.nvim_win_get_buf(input_win), s.bufs.input)
+  check_eq("editing window shows the new buffer", vim.api.nvim_win_get_buf(src_win), other)
+  check_eq("focus leaves the float", vim.api.nvim_get_current_win(), src_win)
+  settle()
+  check_eq("UI follows the new source", S().src_path, other_path)
+end)
+
+case("closing one of two source windows keeps the UI", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local src = s.src_bufnr
+  local src_win = win_of(src)
+  split_above(src_win, src)
+  vim.api.nvim_set_current_win(win_of(s.bufs.input))
+  vim.api.nvim_win_close(src_win, false)
+  settle()
+  check("UI still open", ui.is_open())
+  check_eq("same source", S().src_bufnr, src)
+end)
+
+case("closing the source window hands the UI to the focused source", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local a_win = win_of(s.src_bufnr)
+  local other, other_path = extra_source()
+  local b_win = split_above(a_win, other)
+  vim.cmd("close")
+  check_eq("focus lands on the other source", vim.api.nvim_get_current_win(), b_win)
+  settle()
+  check("UI still open", ui.is_open())
+  check_eq("UI follows the other source", S().src_path, other_path)
+end)
+
+case("closing the source window from the UI switches to a visible source", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local a_win = win_of(s.src_bufnr)
+  local other, other_path = extra_source()
+  split_above(a_win, other)
+  local input_win = win_of(s.bufs.input)
+  vim.api.nvim_set_current_win(input_win)
+  vim.api.nvim_win_close(a_win, false)
+  settle()
+  check("UI still open", ui.is_open())
+  check_eq("UI follows the other source", S().src_path, other_path)
+  check_eq("focus stays in Input", vim.api.nvim_get_current_win(), input_win)
+end)
+
+case("closing the last source window from the UI closes the UI", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local a_win = win_of(s.src_bufnr)
+  local scratch = vim.api.nvim_create_buf(false, true)
+  split_above(a_win, scratch)
+  vim.api.nvim_set_current_win(win_of(s.bufs.input))
+  vim.api.nvim_win_close(a_win, false)
+  settle()
+  check("UI closed", not ui.is_open())
+end)
+
+case(":quit on the last source window closes the UI with its tab", function()
+  reset_windows()
+  vim.cmd("tabnew")
+  local s = open_source(THREE)
+  vim.api.nvim_set_current_win(win_of(s.src_bufnr))
+  vim.cmd("quit")
+  settle()
+  check("UI closed", not ui.is_open())
+  check_eq("tab closed", #vim.api.nvim_list_tabpages(), 1)
+end)
+
+case(":close on the last source window leaves one empty window", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local global_number = vim.go.number
+  vim.go.number = true
+  vim.api.nvim_set_current_win(win_of(s.src_bufnr))
+  vim.cmd("close")
+  settle()
+  check("UI closed", not ui.is_open())
+  local wins = vim.api.nvim_tabpage_list_wins(0)
+  check_eq("one window left", #wins, 1)
+  local buf = vim.api.nvim_win_get_buf(wins[1])
+  check("empty editing buffer", vim.api.nvim_buf_get_name(buf) == "" and vim.bo[buf].buftype == "")
+  check("UI window options reset", vim.wo[wins[1]].number and not vim.wo[wins[1]].winfixwidth)
+  check_eq("winbar cleared", vim.api.nvim_get_option_value("winbar", { win = wins[1], scope = "local" }), "")
+  vim.go.number = global_number
+end)
+
+case("<C-w>T on the source window leaves an empty window behind", function()
+  reset_windows()
+  local s = open_source(THREE)
+  local src = s.src_bufnr
+  local ui_tab = vim.api.nvim_get_current_tabpage()
+  vim.api.nvim_set_current_win(win_of(src))
+  vim.cmd("wincmd T")
+  settle()
+  check("UI closed", not ui.is_open())
+  local old = vim.api.nvim_tabpage_list_wins(ui_tab)
+  check_eq("old tab keeps one window", #old, 1)
+  check_eq("old tab window is empty", vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(old[1])), "")
+  check_eq("new tab shows the source", vim.api.nvim_get_current_buf(), src)
+end)
+
+reset_windows()
+
 -- Done ---------------------------------------------------------------------
 
 vim.fn.delete(tmp, "rf")
