@@ -120,18 +120,20 @@ end
 ---@param kind "header"|"body"
 local function configure_win(win, kind)
   local body = kind == "body"
-  vim.wo[win].number = false
-  vim.wo[win].relativenumber = false
-  vim.wo[win].wrap = false
-  vim.wo[win].signcolumn = "no"
-  vim.wo[win].foldcolumn = "0"
-  vim.wo[win].list = body
+  -- [0] = :setlocal; plain vim.wo[win] also rewrites the global values (:set).
+  local wo = vim.wo[win][0]
+  wo.number = false
+  wo.relativenumber = false
+  wo.wrap = false
+  wo.signcolumn = "no"
+  wo.foldcolumn = "0"
+  wo.list = body
   if body then
-    vim.wo[win].listchars = "tab:>·,trail:-"
+    wo.listchars = "tab:>·,trail:-"
   end
-  vim.wo[win].cursorline = false
+  wo.cursorline = false
   if session and session.ui_mode == "sidebar" then
-    vim.wo[win].winfixwidth = true
+    wo.winfixwidth = true
   end
   -- Sidebar last-used winbar is remembered on the buffer; floats use border titles.
   if session and session.ui_mode == "float" then
