@@ -16,7 +16,6 @@ local M = {}
 ---@field ui_mode "sidebar"|"float"
 ---@field winids integer[]
 ---@field bufs { header: integer, input: integer, expected: integer, output: integer, re: integer, stderr: integer }
----@field main_win integer|nil
 ---@field applying boolean
 ---@field closing boolean
 ---@field compile_stderr string
@@ -798,7 +797,6 @@ function M.close()
     end
   end
   session.winids = {}
-  session.main_win = nil
   session.layout_key = nil
   session.closing = false
 end
@@ -1673,7 +1671,6 @@ local function open_sidebar_column()
   vim.api.nvim_win_set_width(root, resolved_sidebar_width())
   vim.api.nvim_win_set_buf(root, session.bufs.header)
   configure_win(root, "header")
-  session.main_win = root
   table.insert(session.winids, root)
 
   local sections = {
@@ -1724,9 +1721,6 @@ local function open_float_stack()
       zindex = 50 + i,
     })
     configure_win(win, sec.key == "header" and "header" or "body")
-    if i == 1 then
-      session.main_win = win
-    end
     table.insert(session.winids, win)
     y = y + h + 2
   end
@@ -1905,7 +1899,6 @@ function M.ensure_session(src_bufnr)
       re = make_buf("pretest://re", false),
       stderr = make_buf("pretest://stderr", false),
     },
-    main_win = nil,
     applying = false,
     closing = false,
     compile_stderr = "",
