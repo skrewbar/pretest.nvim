@@ -840,6 +840,17 @@ function M.get_session()
   return session
 end
 
+---Source buffer the current window stands for: the session source while the
+---cursor is in a UI window, otherwise the current buffer.
+---@return integer|nil # nil in a UI window without a session
+function M.current_source_buf()
+  local bufnr = vim.api.nvim_get_current_buf()
+  if is_ui_buf(bufnr) then
+    return session and session.src_bufnr
+  end
+  return bufnr
+end
+
 function M.is_open()
   if not session then
     return false

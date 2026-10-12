@@ -180,11 +180,11 @@ local function write_source_and_prob(filepath, task)
   return problem
 end
 
----@param bufnr integer
+---@param bufnr integer|nil
 ---@return string|nil path
 ---@return string|nil filetype # nil only when path is nil; otherwise string (possibly "")
 local function source_from_bufnr(bufnr)
-  if not vim.api.nvim_buf_is_valid(bufnr) then
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return nil, nil
   end
   return util.source_from_buf(bufnr)
@@ -202,6 +202,12 @@ local function store_testcases(bufnr, task)
   if not util.supported_filetype(ft) then
     util.notify("unsupported filetype: " .. util.filetype_label(ft), vim.log.levels.ERROR)
     return false
+  end
+
+  local s = ui.get_session()
+  if s and s.src_path == path then
+    -- Save unsaved Input/Expected edits so "Keep" does not drop them.
+    ui.flush_edits()
   end
 
   local existing, ppath = prob.load_or_create(path)
@@ -531,7 +537,8 @@ function M.start(mode)
 
   local bufnr = nil
   if mode == "current" then
-    bufnr = vim.api.nvim_get_current_buf()
+    -- From a UI window, receive into the source the UI is showing.
+    bufnr = ui.current_source_buf()
     local path, ft = source_from_bufnr(bufnr)
     if not path then
       util.notify("open a source file first", vim.log.levels.ERROR)
