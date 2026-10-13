@@ -34,13 +34,14 @@ Do not pull online submit or custom checkers into these modules.
 
 - **Input** and **Expected** bodies are editable in their section buffers.
 - Problem **name** is edited via `:Pretest edit_name` (prompt); **timeLimit** / **memoryLimit** via `:Pretest edit_limits`. Header lines, Output, Runtime Error, and Stderr are read-only.
-- Persist Input/Expected on `:w`, before TC switch (`<C-n>`/`<C-p>`/header cursor), and before `run`. Name and limits persist immediately on confirm.
+- Persist Input/Expected on `:w`, before TC switch (`<C-n>`/`<C-p>`/header cursor), before `run`, and before Companion receive into the current file. Name and limits persist immediately on confirm.
 - Competitive Companion receive overwrites `.prob` name (and limits) from the incoming task.
 - Stderr section is shown only when non-empty.
 - Runtime Error section is shown only when the current case verdict is RE.
 
 ## UI windows
 
+- Problem commands also run from a UI window and then act on the session source (`ensure_session()`, `current_source_buf()`); never treat the current `pretest://` buffer as the source.
 - UI windows keep their buffers (`session.win_bufs`; register new UI windows with `track_win`). A buffer opened in a UI window (e.g. a bufferline click) is put back into the main window by the `BufWinEnter` guard.
 - Set UI window options window-locally (`vim.wo[win][0]` or `scope = "local"`); plain `vim.wo[win]` also rewrites the global values.
 - When a non-UI window closes but others remain, the UI follows a visible supported source, or closes if none is left.
