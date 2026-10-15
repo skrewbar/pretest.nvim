@@ -482,7 +482,7 @@ function M.setup()
         return
       end
       if not is_ui_buf(vim.api.nvim_get_current_buf()) then
-        -- <abuf> is the buffer of the window being quit (also for `:{N}quit`).
+        -- <abuf> is the buffer of the window being quit (also for `:{count}quit`).
         before_quit(ev.buf)
         return
       end
