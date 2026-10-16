@@ -34,28 +34,19 @@ Install with [lazy.nvim](https://github.com/folke/lazy.nvim). For other plugin m
   cmd = "Pretest",
   opts = {}, -- see docs/configuration.md
   keys = {
-    { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-    { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-    { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-    { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-    { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-    { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
+    { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
   },
 }
 ```
 
 In a source file:
 
-1. `<leader>ta` or `:Pretest add` opens the UI with a new empty testcase and puts the cursor in **Input**.
-2. Fill in the Input section, move to **Expected** with `<Tab>`, type the expected output, and save with `:w`.
+1. `<leader>j` (or `:Pretest`) opens the UI with the cursor in the header. Press `a` (or run `:Pretest add`) to add an empty testcase; the cursor moves to **Input**.
+2. Fill in the Input section, move to **Expected** with `<Tab>`, type the expected output, and save with `:w`. To add the next case, press `<C-a>` right there (Normal or Insert mode).
 3. Press `<S-CR>` (run all) or `<CR>` (run the current case). Verdicts appear in the header and the program output in **Output**.
-4. `<C-n>` / `<C-p>` move between testcases; `q` closes the UI.
+4. `<C-n>` / `<C-p>` move between testcases, `?` lists every UI key, and `q` closes the UI. `<leader>j` jumps back to the source.
 
-Instead of typing testcases, you can run `:Pretest receive` and click the Competitive Companion button on a problem page. See [Competitive Companion](docs/competitive-companion.md).
+Instead of typing testcases, you can also run `:Pretest receive` and use Competitive Companion. See [Competitive Companion](docs/competitive-companion.md).
 
 ## Documentation
 

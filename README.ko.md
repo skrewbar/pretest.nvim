@@ -34,28 +34,19 @@ Neovim에서 테스트케이스를 실행하고 결과를 확인할 수 있는 �
   cmd = "Pretest",
   opts = {}, -- docs/ko/configuration.md 참고
   keys = {
-    { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-    { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-    { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-    { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-    { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-    { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
+    { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
   },
 }
 ```
 
 소스 파일에서:
 
-1. `<leader>ta` 혹은 `:Pretest add`를 실행하면 빈 테스트케이스가 추가된 UI가 열리고 커서가 **Input**에 놓입니다.
-2. Input 섹션을 채우고 `<Tab>`으로 **Expected**로 이동해 기대 출력을 입력한 뒤 `:w`로 저장합니다.
+1. `<leader>j`(또는 `:Pretest`)를 누르면 UI가 열리고 커서가 헤더에 놓입니다. `a`를 누르거나 `:Pretest add`를 실행하면 빈 테스트케이스가 추가되고 커서가 **Input**으로 이동합니다.
+2. Input 섹션을 채우고 `<Tab>`으로 **Expected**로 이동해 기대 출력을 입력한 뒤 `:w`로 저장합니다. 다음 케이스를 추가하려면 그 자리에서 `<C-a>`를 누르면 됩니다(Normal, Insert 모드 모두).
 3. `<S-CR>`(전체 실행) 또는 `<CR>`(현재 케이스 실행)을 누릅니다. 헤더에 결과가 표시되고 **Output**에 프로그램 출력이 나타납니다.
-4. `<C-n>` / `<C-p>`로 테스트케이스를 이동하고, `q`로 UI를 닫습니다.
+4. `<C-n>` / `<C-p>`로 테스트케이스를 이동하고, `?`로 UI 키 목록을 보고, `q`로 UI를 닫을 수 있습니다. `<leader>j`를 누르면 소스로 돌아갑니다.
 
-직접 입력하는 대신 `:Pretest receive`를 실행하고 문제 페이지에서 Competitive Companion 버튼을 눌러도 됩니다. [Competitive Companion](docs/ko/competitive-companion.md) 문서를 참고하세요.
+직접 입력하는 대신 `:Pretest receive`를 실행하고 Competitive Companion을 이용하는 방법도 있습니다. [Competitive Companion](docs/ko/competitive-companion.md) 문서를 참고하세요.
 
 ## 문서
 

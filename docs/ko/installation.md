@@ -21,16 +21,7 @@ return {
   cmd = "Pretest",
   opts = {}, -- configuration.md 참고
   keys = {
-    { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-    { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-    { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-    { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-    { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-    { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
+    { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
   },
 }
 ```
@@ -77,27 +68,14 @@ require("pretest").setup({
   -- configuration.md 참고
 })
 
-local map = function(lhs, cmd, desc)
-  vim.keymap.set("n", lhs, "<cmd>Pretest " .. cmd .. "<cr>", { desc = desc })
-end
-
-map("<leader>tu", "toggle", "Toggle UI")
-map("<leader>tt", "toggle_layout", "Toggle sidebar/float")
-map("<leader>tR", "run", "Run all testcases")
-map("<leader>tr", "run_current", "Run current testcase")
-map("<leader>tn", "run_current_no_compile", "Run current testcase (no compile)")
-map("<leader>tN", "run_no_compile", "Run all (no compile)")
-map("<leader>ts", "stop", "Stop run")
-map("<leader>ta", "add", "Add testcase")
-map("<leader>te", "edit", "Edit/Focus")
-map("<leader>td", "delete", "Delete testcase")
+vim.keymap.set("n", "<leader>j", "<cmd>Pretest<cr>", { desc = "Pretest" })
 ```
 
-모든 동작은 `:Pretest <subcommand>`로 실행할 수 있으므로 `<leader>t`가 아닌 다른 키를 사용해도 됩니다. pretest UI 창 안에서 쓰는 키(`<CR>`, `<S-CR>`, `<C-n>` 등)는 별도 설정인 [`ui_keys`](configuration.md#ui_keys)에서 바꿀 수 있습니다.
+`:Pretest`를 실행하면 UI를 열 수 있습니다. UI가 열려있는 경우에는 커서가 소스와 UI 헤더 사이를 이동합니다. 나머지 동작은 UI 키(UI에서 `?`로 확인할 수 있습니다. [UI 키](commands.md#ui-keys) 참고)나 `:Pretest <subcommand>`로 실행할 수 있습니다. UI 안에서 쓰는 키는 별도 설정인 [`ui_keys`](configuration.md#ui_keys)에서 바꿀 수 있습니다.
 
 ## which-key.nvim
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3는 각 매핑의 `desc`를 자동으로 읽습니다. `<leader>t` 그룹 이름과 아이콘을 지정하려면 which-key 옵션에 `spec`을 추가하면 됩니다. pretest UI 안에서만 동작하는 키(`<CR>`, `<C-n>` 등)는 버퍼 로컬이라 전역 `desc`가 없으므로, `real = true`로 따로 등록하세요. 그러면 해당 버퍼 로컬 키맵이 있을 때만 which-key에 표시됩니다([UI 키](commands.md#ui-keys) 참고).
+[which-key.nvim](https://github.com/folke/which-key.nvim) v3는 각 매핑의 `desc`를 자동으로 읽습니다. UI 키도 `desc`가 붙은 버퍼 로컬 매핑이므로, 따로 설정하지 않아도 pretest UI 안에서 which-key에 표시됩니다. 아이콘을 지정하려면 which-key 옵션에 `spec`을 추가하면 됩니다. `real = true` 아래의 항목은 해당 버퍼 로컬 키맵이 있을 때만 표시됩니다([UI 키](commands.md#ui-keys) 참고).
 
 ```lua
 -- lua/plugins/pretest.lua
@@ -107,7 +85,7 @@ return {
     cmd = "Pretest",
     opts = {},
     keys = {
-      -- ... 위와 같은 keys ...
+      { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
     },
   },
   {
@@ -115,31 +93,25 @@ return {
     optional = true,
     opts = {
       spec = {
-        { "<leader>t", group = "Pretest", icon = "󰤑" },
-        { "<leader>tu", icon = "󰖷" },
-        { "<leader>tt", icon = "󰖯" },
-        { "<leader>tR", icon = "󰐊" },
-        { "<leader>tr", icon = "󰑮" },
-        { "<leader>tn", icon = "󰑮" },
-        { "<leader>tN", icon = "󰓦" },
-        { "<leader>ts", icon = "󰓛" },
-        { "<leader>ta", icon = "󰐕" },
-        { "<leader>te", icon = "󰏫" },
-        { "<leader>td", icon = "󰆴" },
+        { "<leader>j", icon = "󰤑" },
         -- Pretest UI 버퍼 키 (버퍼 로컬 키맵이 있을 때만 표시)
         {
           real = true,
-          { "<C-n>", desc = "Next testcase", mode = { "n", "i" }, icon = "󰑐" },
-          { "<C-p>", desc = "Previous testcase", mode = { "n", "i" }, icon = "󰑐" },
-          { "<Tab>", desc = "Next section", mode = { "n", "i" }, icon = "󰘳" },
-          { "<S-Tab>", desc = "Previous section", mode = { "n", "i" }, icon = "󰘵" },
-          { "<S-CR>", desc = "Run all testcases", icon = "󰐊" },
-          { "<CR>", desc = "Run current testcase", icon = "󰑮" },
-          { "g<S-CR>", desc = "Run all (no compile)", icon = "󰓦" },
-          { "g<CR>", desc = "Run current (no compile)", icon = "󰑮" },
-          { "<C-c>", desc = "Stop run", icon = "󰓛" },
-          { "s", desc = "Stop run", icon = "󰓛" },
-          { "q", desc = "Close UI", icon = "󰅖" },
+          { "<C-n>", mode = { "n", "i" }, icon = "󰑐" },
+          { "<C-p>", mode = { "n", "i" }, icon = "󰑐" },
+          { "<Tab>", mode = { "n", "i" }, icon = "󰘳" },
+          { "<S-Tab>", mode = { "n", "i" }, icon = "󰘵" },
+          { "<S-CR>", icon = "󰐊" },
+          { "<CR>", icon = "󰑮" },
+          { "g<S-CR>", icon = "󰓦" },
+          { "g<CR>", icon = "󰑮" },
+          { "<C-c>", icon = "󰓛" },
+          { "s", icon = "󰓛" },
+          { "<C-a>", mode = { "n", "i" }, icon = "󰐕" },
+          { "a", icon = "󰐕" },
+          { "d", icon = "󰆴" },
+          { "?", icon = "󰋖" },
+          { "q", icon = "󰅖" },
         },
       },
     },
@@ -151,4 +123,4 @@ return {
 
 ## 설치 확인
 
-임의의 `.cpp` 또는 `.py` 파일을 열고 `:Pretest toggle`을 실행합니다. `Local: <파일명>`이 제목인 사이드바가 나타나야 합니다.
+임의의 `.cpp` 또는 `.py` 파일을 열고 `:Pretest`를 실행합니다. `Local: <파일명>`이 제목인 사이드바가 나타나야 합니다.

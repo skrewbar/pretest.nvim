@@ -6,11 +6,11 @@ This page follows a typical workflow: opening the UI, entering testcases, runnin
 
 ## Opening the UI
 
-Open a source file whose filetype is configured under [`languages`](configuration.md#languages) (`cpp` and `python` by default) and open the UI with `:Pretest toggle`, or `<leader>tu` if you registered the keymaps.
+Open a source file whose filetype is configured under [`languages`](configuration.md#languages) (`cpp` and `python` by default) and open the UI with `:Pretest`, or `<leader>j` if you registered the keymap.
 
-pretest loads the `.prob` file for that source, or creates an empty problem named `Local: <filename>` if there is none, then opens the UI and puts the cursor in **Input**. Running `:Pretest toggle` again, pressing `q` inside a pretest window, or running `:q` in one of them closes the whole UI. Closing the UI does not discard anything: results and edits stay attached to the source file for the rest of the Neovim session.
+pretest loads the `.prob` file for that source, or creates an empty problem named `Local: <filename>` if there is none, then opens the UI and puts the cursor in the header. Running `:Pretest` again from the UI jumps back to the source; in the floating layout, which covers the source, it closes the UI instead. Pressing `q` inside a pretest window or running `:q` in one of them also closes the whole UI. Closing the UI does not discard anything: results and edits stay attached to the source file for the rest of the Neovim session.
 
-`:Pretest toggle_layout` switches between the sidebar and floating layout at any time, and `:Pretest toggle_hints` shows or hides the key hints in the header.
+`:Pretest toggle_layout` switches between the sidebar and floating layout at any time. Press `?` in any pretest window to list the UI keys.
 
 ## Layout
 
@@ -23,11 +23,8 @@ The sidebar layout (default, on the right) stacks the sections below vertically.
 │ ──────────────────────────────────── │
 │ Testcases 1/3                        │  accepted / total
 │  1  AC      12ms                     │
-│  2  WA       9ms                     │  
+│  2  WA       9ms                     │
 │ [3] RE      15ms  SIGSEGV            │  the selected case is marked with brackets, e.g. [n]
-│                                      │
-│ <C-n>/<C-p> switch  :w save  q close │  key hints (toggle with toggle_hints)
-│ <S-CR> run-all  <CR> run-one  …      │
 ├ Input ───────────────────────────────┤
 │ 3                                    │  input / editable
 │ 1 2 3                                │
@@ -56,7 +53,7 @@ The sidebar layout (default, on the right) stacks the sections below vertically.
 
 ### Adding and editing
 
-Add a testcase with `:Pretest add` or `<leader>ta`.
+Add a testcase with `<C-a>` in any pretest window (Normal or Insert mode), `a` in the header, or `:Pretest add`. The cursor moves to the new case's **Input**, still in Insert mode if you were typing, so you can press `<C-a>` right after filling in Expected and keep going.
 
 Edits to Input/Expected are written to the `.prob` file:
 
@@ -72,10 +69,11 @@ Leading and trailing blank lines are stored exactly as typed. They do not affect
 | Next / previous case | `<C-n>` / `<C-p>` in the pretest UI (Normal/Insert mode) |
 | Jump to case *n* | `:Pretest edit n`, or move the cursor onto line *n* in the header |
 | Focus the UI on the current case | `:Pretest edit` |
+| Jump between the source and the UI | `:Pretest` (`<leader>j` with the suggested keymap) |
 
 ### Deleting
 
-`:Pretest delete` removes the current case; `:Pretest delete 3` removes case 3. A run in progress is stopped first.
+In the header, `dd` removes the current case and `{count}d` removes the case with that number (e.g. `3d` removes case 3). `:Pretest delete` and `:Pretest delete 3` do the same from anywhere. pretest asks for confirmation every time, and a run in progress is stopped first.
 
 ### Name and limits
 

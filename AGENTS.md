@@ -38,6 +38,8 @@ Do not pull online submit or custom checkers into these modules.
 - Competitive Companion receive overwrites `.prob` name (and limits) from the incoming task.
 - Stderr section is shown only when non-empty.
 - Runtime Error section is shown only when the current case verdict is RE.
+- UI keys are buffer-local and scoped (`ui_keys` `scope`: `all` / `readonly` / `header`). Do not bind single-letter keys that break editing (`a`, `d`, …) in Input/Expected by default.
+- Deleting a testcase always asks for confirmation (`delete_testcase`).
 
 ## UI windows
 
@@ -49,7 +51,7 @@ Do not pull online submit or custom checkers into these modules.
 
 ## UI rendering
 
-- `render_all()` only when windows open or the source/problem changes. Otherwise update just the affected parts: `patch_header({...})` for fixed-row header lines, `render_header()` when the row count or hint wrapping changes, `load_edit_bufs()` when the visible case changes, `refresh_result_view()` for Output/RE/Stderr + layout.
+- `render_all()` only when windows open or the source/problem changes. Otherwise update just the affected parts: `patch_header({...})` for fixed-row header lines, `render_header()` when the row count or header width changes, `load_edit_bufs()` when the visible case changes, `refresh_result_view()` for Output/RE/Stderr + layout.
 - Do not rewrite Input/Expected from run callbacks; that drops unsaved edits, cursor, and undo.
 - `render_layout()` skips window calls while its layout key is unchanged and does nothing while the UI is closed.
 
@@ -64,7 +66,7 @@ Do not pull online submit or custom checkers into these modules.
 - Supported filetypes come from `config.languages` (`util.supported_filetype`). Do not hardcode `cpp` / `python`.
 - Keep async work on `vim.system` callbacks; schedule UI updates with `vim.schedule`.
 - No new dependencies unless clearly justified.
-- User-facing command is `:Pretest <subcommand>` (CompetiTest-style), not many top-level commands.
+- User-facing command is `:Pretest <subcommand>` (CompetiTest-style), not many top-level commands. Bare `:Pretest` jumps between the source and the UI (`ui.focus`).
 
 ## Out of scope
 

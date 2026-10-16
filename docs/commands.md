@@ -2,12 +2,11 @@
 
 # Commands
 
-Every pretest action is available as `:Pretest <subcommand> [argument]`.
+Every pretest action is available as `:Pretest <subcommand> [argument]`. `:Pretest` without a subcommand jumps between the source and the UI.
 
 ```vim
-:Pretest toggle
+:Pretest
 :Pretest toggle_layout
-:Pretest toggle_hints
 :Pretest run [index ...]
 :Pretest run_current
 :Pretest run_no_compile [index ...]
@@ -29,9 +28,8 @@ Commands that act on a problem (`run*`, `add`, `edit*`, `delete`, `rename`, `mov
 
 | Command | Description |
 |---------|-------------|
-| `toggle` | Open the UI for the current source file, or close it if it is open. Opening focuses **Input**. |
+| `:Pretest` | Jump between the source and the UI. Opens the UI if it is closed and focuses the header. With the cursor outside the UI, moves it to the header. With the cursor inside the UI, moves it to the source window in `sidebar` mode, and also closes the UI in `float` mode. |
 | `toggle_layout` | Switch between `sidebar` and `float`. Works while the UI is closed (applies on the next open) and is remembered for the Neovim session. |
-| `toggle_hints` | Show or hide the key-hint lines in the UI header. Remembered for the session; the initial value is `show_header_hints`. |
 
 ## Running
 
@@ -49,9 +47,9 @@ Run commands save the source buffer first if it has unsaved changes, and open th
 
 | Command | Description |
 |---------|-------------|
-| `add` | Append an empty testcase to the end of the list and select it. Opens the UI if it is closed. |
+| `add` | Append an empty testcase to the end of the list, select it, and move the cursor to **Input**. Opens the UI if it is closed. |
 | `edit [index]` | Open the UI and focus **Input**. With `index`, select that testcase. |
-| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`. Stops a run in progress first. |
+| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`, after a confirmation prompt. Stops a run in progress first. |
 | `edit_name` | Prompt for a new problem name. |
 | `edit_limits` | Prompt for the time limit (ms) and the memory limit (MB). A memory limit of `0` disables the memory check. |
 
@@ -85,24 +83,33 @@ See [Competitive Companion](competitive-companion.md) for details.
 
 ## UI keys
 
-Default keys active in the pretest UI. All of them can be changed through [`ui_keys`](configuration.md#ui_keys).
+Default keys active in the pretest UI. Press `?` in any pretest window to list them. Changes made through [`ui_keys`](configuration.md#ui_keys) are reflected in that list.
 
-| Key | Modes | Action |
-|-----|-------|--------|
-| `<C-n>` / `<C-p>` | Normal, Insert | Next / previous testcase |
-| `<Tab>` / `<S-Tab>` | Normal, Insert | Next / previous section |
-| `<S-CR>` | Normal | Run all testcases (`run`) |
-| `<CR>` | Normal | Run the current testcase (`run_current`) |
-| `g<S-CR>` | Normal | Run all without compiling (`run_no_compile`) |
-| `g<CR>` | Normal | Run the current case without compiling (`run_current_no_compile`) |
-| `<C-c>` / `s` | Normal | Stop (`stop`) |
-| `q` | Normal | Close the UI |
+| Key | Modes | Windows | Action |
+|-----|-------|---------|--------|
+| `<C-n>` / `<C-p>` | Normal, Insert | All | Next / previous testcase |
+| `<Tab>` / `<S-Tab>` | Normal, Insert | All | Next / previous section |
+| `<S-CR>` | Normal | All | Run all testcases (`run`) |
+| `<CR>` | Normal | All | Run the current testcase (`run_current`) |
+| `g<S-CR>` | Normal | All | Run all without compiling (`run_no_compile`) |
+| `g<CR>` | Normal | All | Run the current case without compiling (`run_current_no_compile`) |
+| `<C-c>` / `s` | Normal | All | Stop (`stop`) |
+| `q` | Normal | All | Close the UI |
+| `?` | Normal | All | Show the key list |
+| `<C-a>` | Normal, Insert | All | Add a testcase (`add`) |
+| `a` | Normal | Header | Add a testcase (`add`) |
+| `dd` | Normal | Header | Delete the current testcase (`delete`) |
+| `{count}d` | Normal | Header | Delete testcase `{count}` (`delete {count}`) |
+
+Deleting a testcase always asks for confirmation.
+
+In Input and Expected, `<C-a>` adds a testcase instead of Vim's increment. To keep the increment, set `add = "a"` in [`ui_keys`](configuration.md#ui_keys).
 
 Additional behavior that cannot be remapped:
 
 - Moving the cursor onto a testcase line in the header selects that case.
 - `:q`, `:close`, or `<C-w>c` in any pretest window saves edits and closes the whole UI.
 
-`<Tab>` and `<C-n>`/`<C-p>` are also bound in Insert mode. To restore the Insert-mode defaults, set `modes = "n"` on those bindings.
+`<Tab>` and `<C-n>`/`<C-p>` are also bound in Insert mode. To unbind them in Insert mode, set `modes = "n"`.
 
 See [`ui_keys`](configuration.md#ui_keys) for details.

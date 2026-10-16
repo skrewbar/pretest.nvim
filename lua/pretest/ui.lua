@@ -43,14 +43,6 @@ local after_win_closed
 ---@type "sidebar"|"float"|nil
 local preferred_ui = nil
 
----Remembers header hint visibility for this Neovim session (falls back to config).
----@type boolean|nil
-local preferred_show_hints = nil
-
----Last header window width; used to re-apply heights when wrap extra changes.
----@type integer|nil
-local last_header_wrap_width = nil
-
 local HEADER_NS = vim.api.nvim_create_namespace("pretest_header")
 local EMPTY_EOL_NS = vim.api.nvim_create_namespace("pretest_empty_eol")
 local HEADER_HEIGHT_CAP = 36
@@ -66,14 +58,6 @@ local function get_preferred_ui()
     return "float"
   end
   return "sidebar"
-end
-
----@return boolean
-local function get_show_hints()
-  if preferred_show_hints ~= nil then
-    return preferred_show_hints
-  end
-  return config.options.show_header_hints ~= false
 end
 
 ---@return integer
@@ -303,143 +287,6 @@ local function apply_highlights()
   })
 end
 
--- Hint rows: { text, is_key } segments so shortcuts can be colored.
--- Wrap happens per hint unit (keys joined by `/` plus the following label).
----@alias pretest.HintSeg { [1]: string, [2]: boolean }
-
----@param actions string[]
----@param label string
----@return pretest.HintSeg[]|nil
-local function hint_unit(actions, label)
-  local keys = {}
-  for _, action in ipairs(actions) do
-    for _, bind in ipairs(config.ui_key_list(action)) do
-      keys[#keys + 1] = bind.lhs
-    end
-  end
-  if #keys == 0 then
-    return nil
-  end
-  local segs = {}
-  for i, lhs in ipairs(keys) do
-    if i > 1 then
-      segs[#segs + 1] = { "/", false }
-    end
-    segs[#segs + 1] = { lhs, true }
-  end
-  segs[#segs + 1] = { label, false }
-  return segs
-end
-
----@param units (pretest.HintSeg[]|nil)[]
----@return pretest.HintSeg[]
-local function hint_row(units)
-  local segs = {}
-  for _, unit in ipairs(units) do
-    if unit then
-      for _, seg in ipairs(unit) do
-        segs[#segs + 1] = seg
-      end
-    end
-  end
-  return segs
-end
-
----@return pretest.HintSeg[][]
-local function hint_segments()
-  local rows = {
-    hint_row({
-      hint_unit({ "next_case", "prev_case" }, " switch  "),
-      { { ":w", true }, { " save  ", false } },
-      hint_unit({ "close" }, " close  "),
-      hint_unit({ "stop" }, " stop"),
-    }),
-    hint_row({
-      hint_unit({ "run_all" }, " run-all  "),
-      hint_unit({ "run_one" }, " run-one  "),
-      hint_unit({ "run_all_no_compile" }, " no-compile-all  "),
-      hint_unit({ "run_one_no_compile" }, " no-compile-one"),
-    }),
-    hint_row({
-      hint_unit({ "next_section", "prev_section" }, " sections"),
-    }),
-  }
-  local out = {}
-  for _, row in ipairs(rows) do
-    if #row > 0 then
-      out[#out + 1] = row
-    end
-  end
-  return out
-end
-
----Group segments into unsplittable hints: keys joined by `/`, plus the label.
----@param segs pretest.HintSeg[]
----@return pretest.HintSeg[][]
-local function hint_units(segs)
-  local units = {}
-  local i = 1
-  while i <= #segs do
-    local unit = {}
-    while i <= #segs do
-      local text, is_key = segs[i][1], segs[i][2]
-      if is_key or text == "/" then
-        unit[#unit + 1] = segs[i]
-        i = i + 1
-      else
-        break
-      end
-    end
-    if i <= #segs and not segs[i][2] then
-      unit[#unit + 1] = segs[i]
-      i = i + 1
-    end
-    if #unit > 0 then
-      units[#units + 1] = unit
-    end
-  end
-  return units
-end
-
----@param width integer|nil
----@return string[] lines
----@return { row: integer, col: integer, end_col: integer, hl: string }[] marks
-local function build_hint_lines(width)
-  width = (width and width > 0) and width or math.huge
-  local lines = {}
-  local marks = {}
-  for _, segs in ipairs(hint_segments()) do
-    local row = #lines
-    local col = 0
-    local parts = {}
-    for _, unit in ipairs(hint_units(segs)) do
-      local unit_len = 0
-      for _, seg in ipairs(unit) do
-        unit_len = unit_len + #seg[1]
-      end
-      if col > 0 and col + unit_len > width then
-        lines[#lines + 1] = table.concat(parts)
-        parts = {}
-        row = #lines
-        col = 0
-      end
-      for _, seg in ipairs(unit) do
-        local text, is_key = seg[1], seg[2]
-        parts[#parts + 1] = text
-        marks[#marks + 1] = {
-          row = row,
-          col = col,
-          end_col = col + #text,
-          hl = is_key and "PretestKey" or "PretestHint",
-        }
-        col = col + #text
-      end
-    end
-    lines[#lines + 1] = table.concat(parts)
-  end
-  return lines, marks
-end
-
 function M.setup()
   if highlights_setup then
     return
@@ -525,38 +372,27 @@ end
 ---@field sep_row integer
 ---@field cases_label_row integer
 ---@field cases_start integer
----@field hint_base integer|nil
 ---@field min_height integer
----@field show_hints boolean
 ---@field n integer
 
 ---@param n integer
----@param hint_n integer|nil
 ---@return pretest.HeaderLayout
-local function header_layout(n, hint_n)
-  local show_hints = get_show_hints()
-  if hint_n == nil then
-    hint_n = show_hints and #hint_segments() or 0
-  end
+local function header_layout(n)
   local name_row = 0
   local limits_row = 1
   local sep_row = 2
   -- name, limits, sep, "Testcases AC/total", then cases
   local cases_label_row = 3
   local cases_start = 4
-  -- blank after cases only when hints follow
-  local hint_base = show_hints and (cases_start + n + 1) or nil
-  -- name + limits + sep + label + cases + optional (blank + hints)
-  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 4 + n + (show_hints and (1 + hint_n) or 0)))
+  -- name + limits + sep + label + cases
+  local min_height = math.min(HEADER_HEIGHT_CAP, math.max(4, 4 + n))
   return {
     name_row = name_row,
     limits_row = limits_row,
     sep_row = sep_row,
     cases_label_row = cases_label_row,
     cases_start = cases_start,
-    hint_base = hint_base,
     min_height = min_height,
-    show_hints = show_hints,
     n = n,
   }
 end
@@ -564,7 +400,6 @@ end
 ---@param n integer
 ---@return integer
 local function header_content_min(n)
-  -- Unwrapped hint rows only; wrapping must not change section heights.
   return header_layout(n).min_height
 end
 
@@ -808,24 +643,8 @@ end
 
 ---@param buf integer
 ---@param layout pretest.HeaderLayout
----@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
-local function mark_hint_rows(buf, layout, hint_marks)
-  if not layout.hint_base or not hint_marks then
-    return
-  end
-  for _, m in ipairs(hint_marks) do
-    vim.api.nvim_buf_set_extmark(buf, HEADER_NS, layout.hint_base + m.row, m.col, {
-      end_col = m.end_col,
-      hl_group = m.hl,
-    })
-  end
-end
-
----@param buf integer
----@param layout pretest.HeaderLayout
 ---@param idx integer
----@param hint_marks { row: integer, col: integer, end_col: integer, hl: string }[]
-local function apply_header_marks(buf, layout, idx, hint_marks)
+local function apply_header_marks(buf, layout, idx)
   vim.api.nvim_buf_clear_namespace(buf, HEADER_NS, 0, -1)
   mark_sep_row(buf, layout)
   mark_limits_row(buf, layout)
@@ -833,7 +652,6 @@ local function apply_header_marks(buf, layout, idx, hint_marks)
   for i = 1, layout.n do
     mark_case_row(buf, layout, i, idx)
   end
-  mark_hint_rows(buf, layout, hint_marks)
 end
 
 function M.get_session()
@@ -1142,20 +960,15 @@ local function limits_line()
   return string.format("TL %dms │ ML %dMB", tl, ml)
 end
 
----Rebuild header buffer (name, cases, wrapped hints, separator).
----Use when the row count or hint wrapping may change; otherwise `patch_header`.
+---Rebuild header buffer (name, limits, separator, cases).
+---Use when the row count or separator width may change; otherwise `patch_header`.
 local function render_header()
   if not session or not session.bufs.header or not vim.api.nvim_buf_is_valid(session.bufs.header) then
     return
   end
   local n = #session.problem.tests
   local idx = session.index
-  local width = header_sep_width()
-  local hint_lines, hint_marks = {}, {}
-  if get_show_hints() then
-    hint_lines, hint_marks = build_hint_lines(width)
-  end
-  local layout = header_layout(n, #hint_lines)
+  local layout = header_layout(n)
 
   local header = {
     name_line(),
@@ -1167,17 +980,11 @@ local function render_header()
     local line = format_case_line(i, n, idx, session.results[i])
     header[#header + 1] = line
   end
-  if layout.show_hints then
-    header[#header + 1] = ""
-    for _, line in ipairs(hint_lines) do
-      header[#header + 1] = line
-    end
-  end
 
   set_lines(session.bufs.header, header)
   vim.bo[session.bufs.header].modifiable = false
   vim.bo[session.bufs.header].modified = false
-  apply_header_marks(session.bufs.header, layout, idx, hint_marks)
+  apply_header_marks(session.bufs.header, layout, idx)
   session.header_n = n
   session.header_rows = #header
   session.drawn_index = idx
@@ -1650,15 +1457,86 @@ local UI_KEY_ACTIONS = {
   prev_section = function()
     focus_section(-1)
   end,
+  add = function()
+    M.add_testcase()
+  end,
+  ---`{count}{lhs}` deletes testcase {count}; `{lhs}{lhs}` deletes the current one.
+  ---Reads the second key itself, so there is no `{lhs}` / `{lhs}{lhs}` timeoutlen wait.
+  ---@param bind pretest.UiKeyBinding
+  delete = function(bind)
+    local count = vim.v.count
+    if count > 0 then
+      M.delete_testcase(count)
+      return
+    end
+    local target = vim.keycode(bind.lhs)
+    local typed = ""
+    while #typed < #target do
+      local ok, key = pcall(vim.fn.getcharstr)
+      if not ok then
+        return
+      end
+      typed = typed .. key
+      if target:sub(1, #typed) ~= typed then
+        return
+      end
+    end
+    M.delete_testcase()
+  end,
+  help = function()
+    M.help()
+  end,
 }
 
-local function map_ui_keys(buf)
-  local opts = { buffer = buf, silent = true, nowait = true }
+---Help / keymap `desc` order and labels.
+local UI_KEY_HELP = {
+  { "next_case", "Next testcase" },
+  { "prev_case", "Previous testcase" },
+  { "next_section", "Next section" },
+  { "prev_section", "Previous section" },
+  { "run_one", "Run current testcase" },
+  { "run_all", "Run all testcases" },
+  { "run_one_no_compile", "Run current testcase (no compile)" },
+  { "run_all_no_compile", "Run all testcases (no compile)" },
+  { "stop", "Stop run" },
+  { "add", "Add testcase" },
+  { "delete", "Delete testcase" },
+  { "close", "Close UI" },
+  { "help", "Show keys" },
+}
+
+---@type table<string, string>
+local UI_KEY_DESC = {}
+for _, item in ipairs(UI_KEY_HELP) do
+  UI_KEY_DESC[item[1]] = item[2]
+end
+
+---Buffer kinds each `pretest.UiKeyScope` reaches.
+local SCOPE_KINDS = {
+  all = { edit = true, readonly = true, header = true },
+  readonly = { readonly = true, header = true },
+  header = { header = true },
+}
+
+---@param buf integer
+---@param kind "edit"|"readonly"|"header"
+local function map_ui_keys(buf, kind)
+  -- UI buffers outlive a layout; drop earlier maps so a changed `ui_keys` leaves none behind.
+  for _, m in ipairs(vim.b[buf].pretest_ui_maps or {}) do
+    pcall(vim.keymap.del, m[1], m[2], { buffer = buf })
+  end
+  local mapped = {}
   for name, fn in pairs(UI_KEY_ACTIONS) do
     for _, bind in ipairs(config.ui_key_list(name)) do
-      vim.keymap.set(bind.modes, bind.lhs, fn, opts)
+      if SCOPE_KINDS[bind.scope][kind] then
+        vim.keymap.set(bind.modes, bind.lhs, function()
+          fn(bind)
+        end, { buffer = buf, silent = true, nowait = true, desc = UI_KEY_DESC[name] })
+        mapped[#mapped + 1] = { bind.modes, bind.lhs }
+      end
     end
   end
+  vim.b[buf].pretest_ui_maps = mapped
 end
 
 local function setup_buf_autocmds()
@@ -1682,10 +1560,11 @@ local function setup_buf_autocmds()
         apply_empty_eol_marks(buf)
       end,
     })
-    map_ui_keys(buf)
+    map_ui_keys(buf, "edit")
   end
-  for _, buf in ipairs({ session.bufs.header, session.bufs.output, session.bufs.re, session.bufs.stderr }) do
-    map_ui_keys(buf)
+  map_ui_keys(session.bufs.header, "header")
+  for _, buf in ipairs({ session.bufs.output, session.bufs.re, session.bufs.stderr }) do
+    map_ui_keys(buf, "readonly")
   end
 
   vim.api.nvim_create_autocmd("CursorMoved", {
@@ -1743,13 +1622,8 @@ local function setup_buf_autocmds()
           return
         end
       end
+      -- The separator spans the header width.
       render_header()
-      local width = vim.api.nvim_win_get_width(header_win)
-      if width == last_header_wrap_width then
-        return
-      end
-      last_header_wrap_width = width
-      render_layout({ force = true })
     end,
   })
 end
@@ -2161,7 +2035,7 @@ function M.ensure_session(src_bufnr)
 
   local abs = util.abspath(path)
   -- Reuse existing session for the same source even when UI is closed,
-  -- so ui_mode / results survive toggle/close.
+  -- so ui_mode / results survive close.
   if session and session.src_path == abs then
     session.src_bufnr = src_bufnr
     session.filetype = ft
@@ -2237,12 +2111,161 @@ function M.show()
   end
 end
 
-function M.toggle()
-  if M.is_open() then
-    M.close()
-  else
-    M.show()
+local function focus_header()
+  local win = session and find_win_for_buf(session.bufs.header)
+  if win then
+    vim.api.nvim_set_current_win(win)
+    sync_header_cursor(win)
   end
+end
+
+---Jump between the source and the UI header, opening the UI when closed.
+---From the UI: back to the source in sidebar mode; float mode (which covers it) closes.
+function M.focus()
+  if not M.is_open() then
+    M.show()
+    if M.is_open() then
+      focus_header()
+    end
+    return
+  end
+  local cur = vim.api.nvim_get_current_win()
+  if not session.win_bufs[cur] then
+    focus_header()
+    return
+  end
+  if session.ui_mode == "float" then
+    M.close()
+    return
+  end
+  local dest = pick_main_win(cur)
+  if dest then
+    vim.api.nvim_set_current_win(dest)
+  end
+end
+
+---@type integer|nil
+local help_win = nil
+
+local function close_help()
+  if help_win and vim.api.nvim_win_is_valid(help_win) then
+    pcall(vim.api.nvim_win_close, help_win, true)
+  end
+  help_win = nil
+end
+
+---@return string[] lines
+---@return { row: integer, col: integer, end_col: integer, hl: string }[] marks
+local function help_content()
+  local groups = {
+    { scope = "all", title = "All sections", rows = {} },
+    { scope = "readonly", title = "Header & results", rows = {} },
+    { scope = "header", title = "Header", rows = {} },
+  }
+  local by_scope = {}
+  for _, g in ipairs(groups) do
+    by_scope[g.scope] = g
+  end
+  for _, item in ipairs(UI_KEY_HELP) do
+    local name, desc = item[1], item[2]
+    local keys = {}
+    for _, bind in ipairs(config.ui_key_list(name)) do
+      keys[bind.scope] = keys[bind.scope] or {}
+      table.insert(keys[bind.scope], bind.lhs)
+    end
+    for scope, lhs_list in pairs(keys) do
+      local rows = by_scope[scope].rows
+      if name == "delete" then
+        for _, lhs in ipairs(lhs_list) do
+          table.insert(rows, { lhs .. lhs, "Delete current testcase" })
+          table.insert(rows, { "{count}" .. lhs, "Delete testcase {count}" })
+        end
+      else
+        table.insert(rows, { table.concat(lhs_list, " / "), desc })
+      end
+    end
+  end
+  table.insert(groups, {
+    title = "Other",
+    rows = {
+      { ":w", "Save Input / Expected" },
+      { "Header case row", "Select that testcase" },
+    },
+  })
+
+  local key_w = 0
+  for _, g in ipairs(groups) do
+    for _, row in ipairs(g.rows) do
+      key_w = math.max(key_w, vim.fn.strdisplaywidth(row[1]))
+    end
+  end
+  local lines, marks = {}, {}
+  for _, g in ipairs(groups) do
+    if #g.rows > 0 then
+      if #lines > 0 then
+        lines[#lines + 1] = ""
+      end
+      lines[#lines + 1] = " " .. g.title
+      marks[#marks + 1] = { row = #lines - 1, col = 1, end_col = 1 + #g.title, hl = "Title" }
+      for _, row in ipairs(g.rows) do
+        local key, desc = row[1], row[2]
+        local pad = string.rep(" ", key_w - vim.fn.strdisplaywidth(key) + 2)
+        lines[#lines + 1] = "   " .. key .. pad .. desc .. " "
+        local r = #lines - 1
+        marks[#marks + 1] = { row = r, col = 3, end_col = 3 + #key, hl = "PretestKey" }
+        local dcol = 3 + #key + #pad
+        marks[#marks + 1] = { row = r, col = dcol, end_col = dcol + #desc, hl = "PretestHint" }
+      end
+    end
+  end
+  return lines, marks
+end
+
+---Toggle a float listing the UI keys (built from the actual `ui_keys`).
+function M.help()
+  if help_win and vim.api.nvim_win_is_valid(help_win) then
+    close_help()
+    return
+  end
+  local lines, marks = help_content()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  local ns = vim.api.nvim_create_namespace("pretest_help")
+  for _, m in ipairs(marks) do
+    vim.api.nvim_buf_set_extmark(buf, ns, m.row, m.col, { end_col = m.end_col, hl_group = m.hl })
+  end
+  vim.bo[buf].modifiable = false
+  vim.bo[buf].bufhidden = "wipe"
+  vim.bo[buf].filetype = "pretest_help"
+
+  local width = 0
+  for _, line in ipairs(lines) do
+    width = math.max(width, vim.fn.strdisplaywidth(line))
+  end
+  width = math.min(width, math.max(1, vim.o.columns - 4))
+  local height = math.min(#lines, math.max(1, vim.o.lines - 4))
+  help_win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2) - 1,
+    col = math.floor((vim.o.columns - width) / 2),
+    style = "minimal",
+    border = "rounded",
+    title = " Pretest keys ",
+    title_pos = "center",
+    zindex = 100,
+  })
+  for _, lhs in ipairs({ "q", "<Esc>", "?" }) do
+    vim.keymap.set("n", lhs, close_help, { buffer = buf, silent = true, nowait = true })
+  end
+  vim.api.nvim_create_autocmd("WinLeave", {
+    buffer = buf,
+    once = true,
+    callback = function()
+      vim.schedule(close_help)
+    end,
+  })
 end
 
 function M.toggle_layout()
@@ -2260,17 +2283,6 @@ function M.toggle_layout()
     render_all()
   else
     util.notify("UI mode: " .. next_mode)
-  end
-end
-
-function M.toggle_hints()
-  preferred_show_hints = not get_show_hints()
-  if M.is_open() then
-    -- Row count changes; header min height is part of the layout key.
-    with_applying(function()
-      render_header()
-      render_layout()
-    end)
   end
 end
 
@@ -2331,9 +2343,7 @@ function M.add_testcase()
   s.index = #s.problem.tests
   s.results[s.index] = nil
   prob.save(s.problem, s.prob_path)
-  if not M.is_open() then
-    M.show()
-  else
+  if M.is_open() then
     -- Row count changed and the new case is now visible.
     with_applying(function()
       render_header()
@@ -2341,6 +2351,8 @@ function M.add_testcase()
       refresh_result_view()
     end)
   end
+  -- Opens the UI if needed and puts the cursor in Input to fill in the new case.
+  M.show()
 end
 
 function M.edit_limits()
@@ -2470,6 +2482,9 @@ function M.delete_testcase(index)
   index = index or s.index
   if index < 1 or index > #s.problem.tests then
     util.notify("invalid testcase index", vim.log.levels.ERROR)
+    return
+  end
+  if vim.fn.confirm(("Delete testcase %d?"):format(index), "&Yes\n&No", 2) ~= 1 then
     return
   end
   M.flush_edits()

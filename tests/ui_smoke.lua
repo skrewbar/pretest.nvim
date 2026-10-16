@@ -33,16 +33,27 @@ runner.stop = function()
   return true
 end
 
+-- Delete confirmation: answer with `confirm_answer` (1 = Yes, 2 = No).
+local confirm_answer = 1
+vim.fn.confirm = function()
+  return confirm_answer
+end
+
 -- Harness ------------------------------------------------------------------
 
 local failures = 0
 
+-- print() output gets joined onto one line once nvim_feedkeys has run.
+local function out(line)
+  io.stdout:write(line, "\n")
+end
+
 local function check(name, cond, detail)
   if cond then
-    print("  ok   " .. name)
+    out("  ok   " .. name)
   else
     failures = failures + 1
-    print("  FAIL " .. name .. (detail and (": " .. detail) or ""))
+    out("  FAIL " .. name .. (detail and (": " .. detail) or ""))
   end
 end
 
@@ -52,14 +63,15 @@ local function check_eq(name, got, want)
 end
 
 local function case(name, fn)
-  print(name)
+  out(name)
   local ok, err = xpcall(fn, debug.traceback)
   if not ok then
     failures = failures + 1
-    print("  ERROR " .. tostring(err))
+    out("  ERROR " .. tostring(err))
   end
   compiling = false
   hooks = nil
+  confirm_answer = 1
   pcall(ui.close)
 end
 
@@ -93,9 +105,8 @@ end
 ---Assert the (possibly patched) header equals a full header render.
 local function check_header_full(name)
   local before = header_snapshot()
-  -- Two hint toggles force a full header rebuild without touching run state.
-  ui.toggle_hints()
-  ui.toggle_hints()
+  -- WinResized forces a full header rebuild without touching run state.
+  vim.api.nvim_exec_autocmds("WinResized", {})
   check_eq(name, before, header_snapshot())
 end
 
@@ -188,7 +199,7 @@ case("header rows", function()
   check("summary row", l[4] == "Testcases 0/3", l[4])
   check("current marker on case 1", l[5]:find("[1]", 1, true) ~= nil, l[5])
   check("case 2 unmarked", l[6]:find("[", 1, true) == nil, l[6])
-  check("hint block follows cases", l[8] == "", l[8])
+  check("nothing after the cases", #l == 7, tostring(#l))
 end)
 
 case("case done updates its row and summary", function()
@@ -384,32 +395,6 @@ case("header cursor selects a case once", function()
   check_header_full("after header select")
 end)
 
-case("toggle_hints rebuilds header and heights", function()
-  local s = open_source(THREE)
-  local function heights()
-    local out = {}
-    for key, buf in pairs(s.bufs) do
-      local win = vim.fn.win_findbuf(buf)[1]
-      out[key] = win and vim.api.nvim_win_get_height(win) or 0
-    end
-    return out
-  end
-  local with_hints = #lines(s.bufs.header)
-  ui.toggle_hints()
-  check("hints removed", #lines(s.bufs.header) == 7, tostring(#lines(s.bufs.header)))
-  local toggled = heights()
-  ui.close()
-  ui.show()
-  check_eq("heights match a fresh open (hints off)", toggled, heights())
-  ui.toggle_hints()
-  check("hints restored", #lines(s.bufs.header) == with_hints)
-  toggled = heights()
-  ui.close()
-  ui.show()
-  check_eq("heights match a fresh open (hints on)", toggled, heights())
-  check_header_full("after toggles")
-end)
-
 case("add/delete testcase rebuild header rows", function()
   local s = open_source(THREE)
   ui.add_testcase()
@@ -421,6 +406,120 @@ case("add/delete testcase rebuild header rows", function()
   check("back to 3 cases", s.index == 3 and #s.problem.tests == 3)
   check_eq("Input of case 3", lines(s.bufs.input), { "6" })
   check_header_full("after delete")
+end)
+
+case("delete asks for confirmation", function()
+  local s = open_source(THREE)
+  confirm_answer = 2
+  ui.delete_testcase(2)
+  check("No keeps the case", #s.problem.tests == 3)
+  confirm_answer = 1
+  ui.delete_testcase(2)
+  check("Yes deletes it", #s.problem.tests == 2 and s.problem.tests[2].input == "6")
+end)
+
+---Buffer-local normal-mode lhs set of `buf`.
+local function buf_maps(buf)
+  local out = {}
+  for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+    out[m.lhs] = m.desc or true
+  end
+  return out
+end
+
+case("UI keys follow their scope", function()
+  local s = open_source(THREE)
+  local header, input, output = buf_maps(s.bufs.header), buf_maps(s.bufs.input), buf_maps(s.bufs.output)
+  check("header has a / d", header["a"] and header["d"])
+  check("Input has no a / d", not input["a"] and not input["d"])
+  check("Output has no a / d", not output["a"] and not output["d"])
+  check("s / ? everywhere", input["s"] and input["?"] and output["s"] and header["?"])
+  check("desc set", header["a"] == "Add testcase", tostring(header["a"]))
+  check("<C-a> everywhere", header["<C-A>"] and input["<C-A>"] and output["<C-A>"])
+  local insert_maps = {}
+  for _, m in ipairs(vim.api.nvim_buf_get_keymap(s.bufs.expected, "i")) do
+    insert_maps[m.lhs] = true
+  end
+  check("<C-a> in Insert mode", insert_maps["<C-A>"])
+end)
+
+case("readonly scope skips Input/Expected", function()
+  local config = require("pretest.config")
+  local saved = config.options.ui_keys.stop
+  config.options.ui_keys.stop = { "<C-c>", { "s", scope = "readonly" } }
+  local ok, err = pcall(function()
+    local s = open_source(THREE)
+    check("Input has no s", not buf_maps(s.bufs.input)["s"])
+    check("Expected has no s", not buf_maps(s.bufs.expected)["s"])
+    check("Output has s", buf_maps(s.bufs.output)["s"] ~= nil)
+    check("Input keeps <C-c>", buf_maps(s.bufs.input)["<C-C>"] ~= nil)
+  end)
+  config.options.ui_keys.stop = saved
+  if not ok then
+    error(err, 0)
+  end
+end)
+
+case("header a / dd / {count}d", function()
+  local s = open_source(THREE)
+  local hwin = vim.fn.win_findbuf(s.bufs.header)[1]
+  vim.api.nvim_set_current_win(hwin)
+  vim.api.nvim_feedkeys("a", "x", false)
+  check("a adds case 4", #s.problem.tests == 4 and s.index == 4)
+  check("cursor moves to Input", vim.api.nvim_get_current_buf() == s.bufs.input)
+  vim.api.nvim_set_current_win(hwin)
+  vim.api.nvim_feedkeys("2d", "x", false)
+  check("2d deletes case 2", #s.problem.tests == 3 and s.problem.tests[2].input == "6")
+  vim.api.nvim_set_current_win(hwin)
+  ui.goto_case(1)
+  vim.api.nvim_set_current_win(hwin)
+  vim.api.nvim_feedkeys("dd", "x", false)
+  check("dd deletes the current case", #s.problem.tests == 2 and s.problem.tests[1].input == "6")
+  vim.api.nvim_set_current_win(hwin)
+  vim.api.nvim_feedkeys("dj", "x", false)
+  check("d + other key cancels", #s.problem.tests == 2)
+end)
+
+case("<C-a> in Expected adds a case and keeps Insert mode", function()
+  local s = open_source(THREE)
+  local prev = s.index
+  vim.api.nvim_set_current_win(vim.fn.win_findbuf(s.bufs.expected)[1])
+  -- Keys typed after <C-a> land in the new Input only if Insert mode is kept.
+  vim.api.nvim_feedkeys("A9" .. vim.keycode("<C-a>") .. "5" .. vim.keycode("<Esc>"), "x", false)
+  check("adds case 4", #s.problem.tests == 4 and s.index == 4)
+  check_eq("typed Expected was saved", s.problem.tests[prev].output, THREE[prev][2] .. "9")
+  check("cursor moves to Input", vim.api.nvim_get_current_buf() == s.bufs.input)
+  check_eq("Insert mode continues in Input", lines(s.bufs.input), { "5" })
+end)
+
+case("focus jumps between source and header", function()
+  local s = open_source(THREE)
+  local src_buf = s.src_bufnr
+  ui.close()
+  vim.cmd("Pretest") -- bare :Pretest is ui.focus()
+  check("opens the UI", ui.is_open())
+  check("lands in the header", vim.api.nvim_get_current_buf() == s.bufs.header)
+  ui.focus()
+  check("sidebar: back to the source", vim.api.nvim_get_current_buf() == src_buf)
+  check("UI stays open", ui.is_open())
+  ui.focus()
+  check("source: to the header", vim.api.nvim_get_current_buf() == s.bufs.header)
+  ui.toggle_layout() -- the float opens focused
+  ui.focus()
+  check("float: closes", not ui.is_open())
+end)
+
+case("help float toggles", function()
+  open_source(THREE)
+  local before = #vim.api.nvim_list_wins()
+  ui.help()
+  local win = vim.api.nvim_get_current_win()
+  check("opens a float", #vim.api.nvim_list_wins() == before + 1 and vim.api.nvim_win_get_config(win).relative ~= "")
+  local text = table.concat(lines(vim.api.nvim_win_get_buf(win)), "\n")
+  check("lists dd and {count}d", text:find("dd", 1, true) ~= nil and text:find("{count}d", 1, true) ~= nil)
+  ui.help()
+  check("second call closes it", #vim.api.nvim_list_wins() == before)
+  check("UI still open", ui.is_open())
 end)
 
 case("delete with UI closed keeps edit buffers in sync", function()
@@ -667,5 +766,5 @@ reset_windows()
 -- Done ---------------------------------------------------------------------
 
 vim.fn.delete(tmp, "rf")
-print(failures == 0 and "\nall passed" or ("\n" .. failures .. " failure(s)"))
+out(failures == 0 and "\nall passed" or ("\n" .. failures .. " failure(s)"))
 os.exit(failures == 0 and 0 or 1)

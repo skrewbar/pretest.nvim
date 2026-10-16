@@ -27,7 +27,6 @@ require("pretest").setup({
   -- 섹션의 상대 높이
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
-  show_header_hints = true,
 
   -- 기본 제한 --------------------------------------------------
   default_time_limit = 3000, -- ms
@@ -45,6 +44,9 @@ require("pretest").setup({
     run_one = "<CR>",
     run_all_no_compile = "g<S-CR>",
     run_one_no_compile = "g<CR>",
+    add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } }, -- a: 헤더에서만
+    delete = "d", -- 헤더에서만: dd = 현재, {count}d = {count}번 테스트케이스
+    help = "?",
   },
 
   -- 언어 -------------------------------------------
@@ -105,23 +107,36 @@ float_height = 40,                            -- 정확히 40줄 (테두리 포�
 sidebar_sections = { header = 1, input = 2, expected = 2, output = 3 },
 ```
 
-### `show_header_hints`
-
-헤더에 키 힌트를 보여줄 지 결정합니다. `:Pretest toggle_hints`를 사용하면 이번 세션 동안만 이를 토글합니다. 힌트는 실제 `ui_keys` 설정으로 렌더링되므로 키를 바꿔도 그에 맞게 표시됩니다.
-
 ## `ui_keys`
 
-pretest UI 안에서만 매핑되는(버퍼 로컬) 키입니다.
+pretest UI 안에서만 매핑되는(버퍼 로컬) 키입니다. UI 버퍼에서 `?`를 누르면 현재 적용된 키를 볼 수 있습니다.
+
+아래는 값에 따른 config 예시입니다.
 
 | 값 | 의미 |
 |----|------|
-| `"<C-j>"` | 키 하나, 기본 모드 |
+| `"<C-j>"` | 키 하나 지정 |
 | `{ "<C-j>", modes = "n" }` | 키 하나, 모드 명시 (`"n"`, `"i"`, 또는 리스트) |
+| `{ "x", scope = "readonly" }` | 키 하나, 창 명시 (아래 참고) |
 | `{ "q", "<Esc>" }` | 키 여러 개 |
 | `{ { "<Tab>", modes = "n" }, "<C-l>" }` | 혼합 |
 | `false` | 바인딩 해제 |
 
-기본 모드는 `next_case`, `prev_case`, `next_section`, `prev_section`은 **Normal/Insert**, 나머지는 Normal 모드에서만 적용됩니다. 동작을 지정하면 그 동작의 기본값을 완전히 대체하고, 지정하지 않은 동작은 기본값을 유지합니다.
+`modes`를 지정하지 않으면 `next_case`, `prev_case`, `next_section`, `prev_section`은 **Normal/Insert**모드에서, 나머지는 Normal 모드에서만 적용됩니다.
+
+지정한 동작은 기본값을 대체하고, 지정하지 않은 동작은 기본값을 유지합니다.
+
+`scope`는 키를 바인딩할 창을 정합니다.
+
+| `scope` | 창 |
+|---------|----|
+| `"all"` | 편집 가능한 Input, Expected를 포함한 모든 섹션 |
+| `"readonly"` | 헤더, Output, Runtime Error, Stderr |
+| `"header"` | 헤더만 |
+
+기본적으로 `add`, `delete`는 `"header"`, 나머지는 `"all"`입니다. 기본값 중 `add`의 `<C-a>`는 직접 `scope = "all"`을 지정합니다.
+
+`delete`는 count를 받습니다. `{count}{키}`는 `{count}`번 테스트케이스를 삭제하고, 키를 두 번 누르면 현재 테스트케이스를 삭제합니다. 어느 쪽이든 삭제 전에 확인을 받습니다.
 
 ```lua
 ui_keys = {
@@ -259,8 +274,8 @@ run = {
 | `PretestRunning` | `DiagnosticInfo` | `Running`, `Compiling` |
 | `PretestPending` | `Comment` | 결과가 없는 케이스 |
 | `PretestCurrent` | `Title` | 선택된 케이스의 `[n]` 표시 |
-| `PretestKey` | `Special` | 헤더 힌트의 키 이름 |
-| `PretestHint` | `Comment` | 힌트 설명 |
+| `PretestKey` | `Special` | `?` 키 목록의 키 이름 |
+| `PretestHint` | `Comment` | `?` 키 목록의 설명 |
 | `PretestSep` | `FloatBorder` 전경색 | 헤더 구분선과 `│` |
 
 pretest 버퍼는 `filetype=pretest`이고 이름이 `pretest://input#<bufnr>` 형태이므로, 상태줄, 자동 포매터, 자동완성 플러그인에서 제외할 때 활용할 수 있습니다.

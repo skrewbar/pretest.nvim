@@ -27,7 +27,6 @@ require("pretest").setup({
   -- Relative section heights
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
-  show_header_hints = true,
 
   -- Default limits -----------------------------------------------------
   default_time_limit = 3000, -- ms
@@ -45,6 +44,9 @@ require("pretest").setup({
     run_one = "<CR>",
     run_all_no_compile = "g<S-CR>",
     run_one_no_compile = "g<CR>",
+    add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } }, -- a: header only
+    delete = "d", -- header only: dd = current, {count}d = testcase {count}
+    help = "?",
   },
 
   -- Languages ----------------------------------------------------------
@@ -105,23 +107,36 @@ Relative weights for **header**, **Input**, **Expected**, and **Output**. Each s
 sidebar_sections = { header = 1, input = 2, expected = 2, output = 3 },
 ```
 
-### `show_header_hints`
-
-Whether the header shows key hints. `:Pretest toggle_hints` toggles this for the current session only. Hints are rendered from your actual `ui_keys`, so they stay accurate after remapping.
-
 ## `ui_keys`
 
-Keys mapped only inside the pretest UI (buffer-local).
+Keys mapped only inside the pretest UI (buffer-local). Press `?` in the UI to see the keys currently in effect.
+
+Each action accepts one of these values:
 
 | Value | Meaning |
 |-------|---------|
-| `"<C-j>"` | One key, default modes |
+| `"<C-j>"` | One key |
 | `{ "<C-j>", modes = "n" }` | One key with explicit modes (`"n"`, `"i"`, or a list) |
+| `{ "x", scope = "readonly" }` | One key with explicit windows (see below) |
 | `{ "q", "<Esc>" }` | Several keys |
 | `{ { "<Tab>", modes = "n" }, "<C-l>" }` | Mixed |
 | `false` | Unbind |
 
-Default modes are **Normal/Insert** for `next_case`, `prev_case`, `next_section`, `prev_section`, and Normal only for the rest. Setting an action replaces its default entirely; omitted actions keep theirs.
+Without `modes`, `next_case`, `prev_case`, `next_section`, and `prev_section` are bound in **Normal/Insert** mode, and the rest in Normal mode only.
+
+Setting an action replaces its default; omitted actions keep theirs.
+
+`scope` picks the pretest windows a key is bound in:
+
+| `scope` | Windows |
+|---------|---------|
+| `"all"` | Every section, including the editable Input and Expected |
+| `"readonly"` | Header, Output, Runtime Error, and Stderr |
+| `"header"` | Header only |
+
+The default is `"header"` for `add` and `delete`, and `"all"` for the rest. The default `<C-a>` of `add` sets `scope = "all"` itself.
+
+`delete` reads a count: `{count}{key}` deletes testcase `{count}`, and pressing the key twice deletes the current testcase. Either way it asks for confirmation.
 
 ```lua
 ui_keys = {
@@ -259,8 +274,8 @@ All groups are defined with `default = true` and can be overridden in your color
 | `PretestRunning` | `DiagnosticInfo` | `Running`, `Compiling` |
 | `PretestPending` | `Comment` | Cases without a result |
 | `PretestCurrent` | `Title` | `[n]` marker of the selected case |
-| `PretestKey` | `Special` | Key names in header hints |
-| `PretestHint` | `Comment` | Hint labels |
+| `PretestKey` | `Special` | Key names in the `?` key list |
+| `PretestHint` | `Comment` | Descriptions in the `?` key list |
 | `PretestSep` | `FloatBorder` foreground | Header separator line and `│` |
 
 pretest buffers have `filetype=pretest` and names of the form `pretest://input#<bufnr>`, which you can use to exclude them from statuslines, autoformatters, or completion plugins.

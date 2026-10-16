@@ -6,11 +6,11 @@
 
 ## UI 열기
 
-[`languages`](configuration.md#languages)에 설정된 filetype(기본값은 `cpp`, `python`)의 소스 파일을 열고 `:Pretest toggle` 혹은 키맵을 등록했다면 `<leader>tu`로 UI를 엽니다.
+[`languages`](configuration.md#languages)에 설정된 filetype(기본값은 `cpp`, `python`)의 소스 파일을 열고 `:Pretest` 혹은 키맵을 등록했다면 `<leader>j`로 UI를 엽니다.
 
-pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local: <파일명>`이라는 빈 문제를 만들고 UI를 열어 커서를 **Input**에 둡니다. 다시 `:Pretest toggle`을 실행하거나, pretest 창 안에서 `q`를 누르거나, pretest 창 중 하나에서 `:q`를 실행하면 UI 전체가 닫힙니다. UI를 닫아도 결과와 편집 내용은 Neovim 세션이 끝날 때까지 그 소스 파일에 붙어 있습니다.
+pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local: <파일명>`이라는 빈 문제를 만들고 UI를 열어 커서를 헤더에 둡니다. UI에서 다시 `:Pretest`를 실행하면 소스로 돌아갑니다. 플로팅 레이아웃은 소스를 가리므로 대신 UI를 닫습니다. pretest 창 안에서 `q`를 누르거나 pretest 창 중 하나에서 `:q`를 실행해도 UI 전체가 닫힙니다. UI를 닫아도 결과와 편집 내용은 Neovim 세션이 끝날 때까지 그 소스 파일에 붙어 있습니다.
 
-`:Pretest toggle_layout`은 언제든 사이드바와 플로팅 레이아웃을 전환하고, `:Pretest toggle_hints`는 헤더의 키 힌트를 보이거나 숨깁니다.
+`:Pretest toggle_layout`은 언제든 사이드바와 플로팅 레이아웃을 전환합니다. pretest 창에서 `?`를 누르면 UI 키 목록을 볼 수 있습니다.
 
 ## 화면 구성
 
@@ -19,15 +19,12 @@ pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local:
 ```text
 ┌ Pretest ─────────────────────────────┐
 │ Local: main                          │  문제 이름
-│ TL 3000ms │ ML 1024MB                │  시간 | 메모리 제한   
+│ TL 3000ms │ ML 1024MB                │  시간 | 메모리 제한
 │ ──────────────────────────────────── │
 │ Testcases 1/3                        │  맞은 개수 / 전체
 │  1  AC      12ms                     │
-│  2  WA       9ms                     │  
+│  2  WA       9ms                     │
 │ [3] RE      15ms  SIGSEGV            │  선택된 케이스는 [n]처럼 대괄호로 표시
-│                                      │
-│ <C-n>/<C-p> switch  :w save  q close │  키 힌트 (toggle_hints로 토글)
-│ <S-CR> run-all  <CR> run-one  …      │
 ├ Input ───────────────────────────────┤
 │ 3                                    │  입력 / 수정 가능
 │ 1 2 3                                │
@@ -56,7 +53,7 @@ pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local:
 
 ### 추가와 편집
 
-`:Pretest add` 혹은 `<leader>ta`로 테스트케이스를 추가할 수 있습니다.
+pretest 창 어디서든 `<C-a>`(Normal, Insert 모드)를 누르거나, 헤더에서 `a`를 누르거나, `:Pretest add`를 실행하면 테스트케이스가 추가되고 커서가 새 케이스의 **Input**으로 이동합니다. 입력 중이었다면 Insert 모드가 유지되므로, Expected를 다 쓴 뒤 바로 `<C-a>`를 눌러 다음 케이스를 이어서 입력할 수 있습니다.
 
 Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩니다:
 
@@ -72,10 +69,11 @@ Input/Expected의 편집 내용은 다음 시점에 `.prob` 파일에 기록됩�
 | 다음 / 이전 케이스 | pretest UI 위에서 `<C-n>` / `<C-p>` (Normal/Insert 모드) |
 | *n*번 케이스로 이동 | `:Pretest edit n`, 또는 헤더의 *n*번 줄로 커서 이동 |
 | 현재 케이스로 UI 포커스 | `:Pretest edit` |
+| 소스와 UI 사이 이동 | `:Pretest` (권장 키맵을 적용한 경우 `<leader>j`) |
 
 ### 삭제
 
-`:Pretest delete`는 현재 케이스를, `:Pretest delete 3`은 3번 케이스를 삭제합니다. 실행 중이면 먼저 멈춘 뒤 삭제합니다.
+헤더에서 `dd`를 실행하면 현재 케이스를, `{count}d`를 실행하면 그 번호의 케이스를(예: `3d`는 3번 케이스) 삭제합니다. 어디서든 `:Pretest delete`와 `:Pretest delete 3`으로도 같은 일을 할 수 있습니다. 삭제할 때마다 확인을 받으며, 실행 중이면 먼저 멈춘 뒤 삭제합니다.
 
 ### 이름과 제한
 

@@ -4,9 +4,7 @@ local util = require("pretest.util")
 local M = {}
 
 local subcommands = {
-  "toggle",
   "toggle_layout",
-  "toggle_hints",
   "run",
   "run_current",
   "run_current_no_compile",
@@ -86,16 +84,9 @@ function M.command(args)
   local parts = vim.split(args, " ", { plain = true, trimempty = true })
   local sub = parts[1]
   if not sub then
-    util.notify("usage: Pretest <subcommand>", vim.log.levels.WARN)
-    return
-  end
-
-  if sub == "toggle" then
-    ui.toggle()
+    ui.focus()
   elseif sub == "toggle_layout" then
     ui.toggle_layout()
-  elseif sub == "toggle_hints" then
-    ui.toggle_hints()
   elseif sub == "run" then
     run_with_indices(vim.list_slice(parts, 2), true)
   elseif sub == "run_current" then

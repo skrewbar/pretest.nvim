@@ -6,10 +6,15 @@ local M = {}
 ---@alias pretest.UiMode "n"|"i"
 ---@alias pretest.UiModes pretest.UiMode|pretest.UiMode[]
 
----One UI key. `[1]` is the Neovim lhs. Omit `modes` to use the action default.
+---Which pretest buffers get a key: every section, the read-only ones
+---(header, Output, Runtime Error, Stderr), or the header only.
+---@alias pretest.UiKeyScope "all"|"readonly"|"header"
+
+---One UI key. `[1]` is the Neovim lhs. Omit `modes` / `scope` to use the action default.
 ---@class pretest.UiKey
 ---@field [1] string
 ---@field modes? pretest.UiModes
+---@field scope? pretest.UiKeyScope
 
 ---@alias pretest.UiKeySpec
 ---| false
@@ -20,6 +25,7 @@ local M = {}
 ---@class pretest.UiKeyBinding
 ---@field lhs string
 ---@field modes string[]
+---@field scope pretest.UiKeyScope
 
 ---@class pretest.UiKeys
 ---@field next_case pretest.UiKeySpec
@@ -32,6 +38,9 @@ local M = {}
 ---@field run_one pretest.UiKeySpec
 ---@field run_all_no_compile pretest.UiKeySpec
 ---@field run_one_no_compile pretest.UiKeySpec
+---@field add pretest.UiKeySpec
+---@field delete pretest.UiKeySpec
+---@field help pretest.UiKeySpec
 
 ---@class pretest.Config
 ---@field save_dir string|nil
@@ -48,7 +57,6 @@ local M = {}
 ---@field float_max_height pretest.Size|nil
 ---@field default_time_limit integer
 ---@field default_memory_limit integer
----@field show_header_hints boolean
 ---@field sidebar_sections { header: number, input: number, expected: number, output: number }
 ---@field float_sections { header: number, input: number, expected: number, output: number }
 ---@field ui_keys pretest.UiKeys
@@ -118,7 +126,6 @@ local defaults = {
   float_max_height = nil,
   default_time_limit = 3000,
   default_memory_limit = 1024,
-  show_header_hints = true,
   sidebar_sections = {
     header = 1,
     input = 1,
@@ -142,6 +149,9 @@ local defaults = {
     run_one = "<CR>",
     run_all_no_compile = "g<S-CR>",
     run_one_no_compile = "g<CR>",
+    add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } },
+    delete = "d",
+    help = "?",
   },
   languages = {
     cpp = {
@@ -191,7 +201,18 @@ local UI_KEY_MODES = {
   run_one = { "n" },
   run_all_no_compile = { "n" },
   run_one_no_compile = { "n" },
+  add = { "n" },
+  delete = { "n" },
+  help = { "n" },
 }
+
+---@type table<string, pretest.UiKeyScope>
+local UI_KEY_SCOPES = {
+  add = "header",
+  delete = "header",
+}
+
+local VALID_SCOPES = { all = true, readonly = true, header = true }
 
 ---@param modes pretest.UiModes|nil
 ---@param default string[]
@@ -216,13 +237,14 @@ end
 
 ---@param item string|pretest.UiKey
 ---@param default_modes string[]
+---@param default_scope pretest.UiKeyScope
 ---@return pretest.UiKeyBinding|nil
-local function binding_from(item, default_modes)
+local function binding_from(item, default_modes, default_scope)
   if type(item) == "string" then
     if item == "" then
       return nil
     end
-    return { lhs = item, modes = vim.list_extend({}, default_modes) }
+    return { lhs = item, modes = vim.list_extend({}, default_modes), scope = default_scope }
   end
   if type(item) ~= "table" then
     return nil
@@ -231,32 +253,34 @@ local function binding_from(item, default_modes)
   if type(lhs) ~= "string" or lhs == "" then
     return nil
   end
-  return { lhs = lhs, modes = as_modes(item.modes, default_modes) }
+  local scope = VALID_SCOPES[item.scope] and item.scope or default_scope
+  return { lhs = lhs, modes = as_modes(item.modes, default_modes), scope = scope }
 end
 
 ---@param spec pretest.UiKeySpec|nil
 ---@param default_modes string[]
+---@param default_scope pretest.UiKeyScope
 ---@return pretest.UiKeyBinding[]
-local function normalize_ui_key_spec(spec, default_modes)
+local function normalize_ui_key_spec(spec, default_modes, default_scope)
   if spec == false or spec == nil then
     return {}
   end
   if type(spec) == "string" then
-    local b = binding_from(spec, default_modes)
+    local b = binding_from(spec, default_modes, default_scope)
     return b and { b } or {}
   end
   if type(spec) ~= "table" then
     return {}
   end
   -- `{ "<Tab>", modes = "n" }` or `{ "<C-j>" }` is one binding; `{ "<Tab>", "<C-l>" }` is a list.
-  local single = spec.modes ~= nil or (type(spec[1]) == "string" and spec[2] == nil)
+  local single = spec.modes ~= nil or spec.scope ~= nil or (type(spec[1]) == "string" and spec[2] == nil)
   if single then
-    local b = binding_from(spec, default_modes)
+    local b = binding_from(spec, default_modes, default_scope)
     return b and { b } or {}
   end
   local out = {}
   for _, item in ipairs(spec) do
-    local b = binding_from(item, default_modes)
+    local b = binding_from(item, default_modes, default_scope)
     if b then
       out[#out + 1] = b
     end
@@ -279,8 +303,9 @@ end
 ---@return pretest.UiKeyBinding[]
 function M.ui_key_list(action)
   local default_modes = UI_KEY_MODES[action] or { "n" }
+  local default_scope = UI_KEY_SCOPES[action] or "all"
   local spec = (M.options.ui_keys or {})[action]
-  return normalize_ui_key_spec(spec, default_modes)
+  return normalize_ui_key_spec(spec, default_modes, default_scope)
 end
 
 ---@param ft string|nil

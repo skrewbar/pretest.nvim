@@ -21,16 +21,7 @@ return {
   cmd = "Pretest",
   opts = {}, -- see configuration.md
   keys = {
-    { "<leader>tu", "<cmd>Pretest toggle<cr>", desc = "Toggle UI" },
-    { "<leader>tt", "<cmd>Pretest toggle_layout<cr>", desc = "Toggle sidebar/float" },
-    { "<leader>tR", "<cmd>Pretest run<cr>", desc = "Run all testcases" },
-    { "<leader>tr", "<cmd>Pretest run_current<cr>", desc = "Run current testcase" },
-    { "<leader>tn", "<cmd>Pretest run_current_no_compile<cr>", desc = "Run current testcase (no compile)" },
-    { "<leader>tN", "<cmd>Pretest run_no_compile<cr>", desc = "Run all (no compile)" },
-    { "<leader>ts", "<cmd>Pretest stop<cr>", desc = "Stop run" },
-    { "<leader>ta", "<cmd>Pretest add<cr>", desc = "Add testcase" },
-    { "<leader>te", "<cmd>Pretest edit<cr>", desc = "Edit/Focus" },
-    { "<leader>td", "<cmd>Pretest delete<cr>", desc = "Delete testcase" },
+    { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
   },
 }
 ```
@@ -77,27 +68,14 @@ require("pretest").setup({
   -- see configuration.md
 })
 
-local map = function(lhs, cmd, desc)
-  vim.keymap.set("n", lhs, "<cmd>Pretest " .. cmd .. "<cr>", { desc = desc })
-end
-
-map("<leader>tu", "toggle", "Toggle UI")
-map("<leader>tt", "toggle_layout", "Toggle sidebar/float")
-map("<leader>tR", "run", "Run all testcases")
-map("<leader>tr", "run_current", "Run current testcase")
-map("<leader>tn", "run_current_no_compile", "Run current testcase (no compile)")
-map("<leader>tN", "run_no_compile", "Run all (no compile)")
-map("<leader>ts", "stop", "Stop run")
-map("<leader>ta", "add", "Add testcase")
-map("<leader>te", "edit", "Edit/Focus")
-map("<leader>td", "delete", "Delete testcase")
+vim.keymap.set("n", "<leader>j", "<cmd>Pretest<cr>", { desc = "Pretest" })
 ```
 
-Every action is available as `:Pretest <subcommand>`, so you can use keys other than `<leader>t`. Keys inside the pretest UI windows (`<CR>`, `<S-CR>`, `<C-n>`, …) are a separate setting, [`ui_keys`](configuration.md#ui_keys).
+`:Pretest` opens the UI. While the UI is open, it moves the cursor between the source and the UI header. Everything else is done with UI keys (press `?` in the UI to list them, or see [UI keys](commands.md#ui-keys)) or with `:Pretest <subcommand>`. The keys inside the UI are a separate setting, [`ui_keys`](configuration.md#ui_keys).
 
 ## which-key.nvim
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads the `desc` of each mapping automatically. To set the `<leader>t` group name and icons, add a `spec` to which-key's options. Keys that work only inside the pretest UI (`<CR>`, `<C-n>`, …) are buffer-local and have no global `desc`, so register them separately with `real = true` — which-key shows them only when the matching buffer-local keymap exists (see [UI keys](commands.md#ui-keys)).
+[which-key.nvim](https://github.com/folke/which-key.nvim) v3 reads the `desc` of each mapping automatically. The UI keys are buffer-local mappings that carry a `desc` too, so which-key lists them inside the pretest UI without any setup. To add icons, add a `spec` to which-key's options. Entries under `real = true` show only where the matching buffer-local mapping exists (see [UI keys](commands.md#ui-keys)).
 
 ```lua
 -- lua/plugins/pretest.lua
@@ -107,7 +85,7 @@ return {
     cmd = "Pretest",
     opts = {},
     keys = {
-      -- ... same keys as above ...
+      { "<leader>j", "<cmd>Pretest<cr>", desc = "Pretest" },
     },
   },
   {
@@ -115,31 +93,25 @@ return {
     optional = true,
     opts = {
       spec = {
-        { "<leader>t", group = "Pretest", icon = "󰤑" },
-        { "<leader>tu", icon = "󰖷" },
-        { "<leader>tt", icon = "󰖯" },
-        { "<leader>tR", icon = "󰐊" },
-        { "<leader>tr", icon = "󰑮" },
-        { "<leader>tn", icon = "󰑮" },
-        { "<leader>tN", icon = "󰓦" },
-        { "<leader>ts", icon = "󰓛" },
-        { "<leader>ta", icon = "󰐕" },
-        { "<leader>te", icon = "󰏫" },
-        { "<leader>td", icon = "󰆴" },
+        { "<leader>j", icon = "󰤑" },
         -- Pretest UI buffer keys (shown only when the buffer-local mapping exists)
         {
           real = true,
-          { "<C-n>", desc = "Next testcase", mode = { "n", "i" }, icon = "󰑐" },
-          { "<C-p>", desc = "Previous testcase", mode = { "n", "i" }, icon = "󰑐" },
-          { "<Tab>", desc = "Next section", mode = { "n", "i" }, icon = "󰘳" },
-          { "<S-Tab>", desc = "Previous section", mode = { "n", "i" }, icon = "󰘵" },
-          { "<S-CR>", desc = "Run all testcases", icon = "󰐊" },
-          { "<CR>", desc = "Run current testcase", icon = "󰑮" },
-          { "g<S-CR>", desc = "Run all (no compile)", icon = "󰓦" },
-          { "g<CR>", desc = "Run current (no compile)", icon = "󰑮" },
-          { "<C-c>", desc = "Stop run", icon = "󰓛" },
-          { "s", desc = "Stop run", icon = "󰓛" },
-          { "q", desc = "Close UI", icon = "󰅖" },
+          { "<C-n>", mode = { "n", "i" }, icon = "󰑐" },
+          { "<C-p>", mode = { "n", "i" }, icon = "󰑐" },
+          { "<Tab>", mode = { "n", "i" }, icon = "󰘳" },
+          { "<S-Tab>", mode = { "n", "i" }, icon = "󰘵" },
+          { "<S-CR>", icon = "󰐊" },
+          { "<CR>", icon = "󰑮" },
+          { "g<S-CR>", icon = "󰓦" },
+          { "g<CR>", icon = "󰑮" },
+          { "<C-c>", icon = "󰓛" },
+          { "s", icon = "󰓛" },
+          { "<C-a>", mode = { "n", "i" }, icon = "󰐕" },
+          { "a", icon = "󰐕" },
+          { "d", icon = "󰆴" },
+          { "?", icon = "󰋖" },
+          { "q", icon = "󰅖" },
         },
       },
     },
@@ -151,4 +123,4 @@ With `optional = true`, the spec is merged into your existing which-key spec. Wi
 
 ## Verifying the install
 
-Open any `.cpp` or `.py` file and run `:Pretest toggle`. A sidebar titled `Local: <filename>` should appear.
+Open any `.cpp` or `.py` file and run `:Pretest`. A sidebar titled `Local: <filename>` should appear.
