@@ -4,7 +4,7 @@
 
 A plugin for running testcases and checking the results in Neovim.
 
-![pretest.nvim demo](demo.gif)
+![pretest.nvim demo](vhs/demo.gif)
 
 ## Features
 

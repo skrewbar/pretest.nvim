@@ -4,7 +4,7 @@
 
 Neovim에서 테스트케이스를 실행하고 결과를 확인할 수 있는 플러그인입니다.
 
-![pretest.nvim demo](demo.gif)
+![pretest.nvim demo](vhs/demo.gif)
 
 ## 주요 기능
 
