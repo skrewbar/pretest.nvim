@@ -23,6 +23,7 @@ Neovim에서 테스트케이스를 실행하고 결과를 확인할 수 있는 �
 - [Neovim](https://neovim.io/) 0.10 이상
 - (Windows) `PATH`에 `md5`, `openssl`, `md5sum` 중 하나 \
   Git for Windows가 `C:\Program Files\Git`에 설치되어 있는 경우 `C:\Program Files\Git\usr\bin`를 `PATH`에 추가하면 됩니다.
+- (선택) 기본 [빈 줄 표시](docs/ko/configuration.md#empty_line_marker)에 쓰이는 [Nerd Font](https://www.nerdfonts.com/)
 
 ## 빠른 시작
 

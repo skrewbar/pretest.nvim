@@ -11,6 +11,8 @@ pretest.nvim is a pure Lua plugin with no runtime dependencies beyond Neovim 0.1
 - (Windows) One of `md5`, `openssl`, or `md5sum` \
   Used to derive `.prob` file names. \
   If Git for Windows is installed, use `md5sum` or `openssl` from its `usr\bin`.
+- (Optional) A [Nerd Font](https://www.nerdfonts.com/) \
+  The default [`empty_line_marker`](configuration.md#empty_line_marker) is a Nerd Font glyph; change it if your terminal font is not one.
 
 ## lazy.nvim
 

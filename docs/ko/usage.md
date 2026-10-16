@@ -42,7 +42,7 @@ pretest는 해당 소스의 `.prob` 파일을 읽어 오거나 없으면 `Local:
 - **헤더**는 모든 테스트케이스의 결과, 실행 시간, 그리고 `RE`/`MLE`의 경우 짧은 원인을 나열합니다. 케이스를 나타내는 줄 위로 커서를 옮기면 그 케이스가 선택됩니다.
 - `<C-n>/C-p>`로도 케이스를 선택할 수 있습니다.
 - **Input** / **Expected**는 편집 가능한 버퍼입니다(`filetype=pretest`).
-- 완전히 빈 줄은 `↵`, 탭은 `>`, 줄 끝 공백은 `-`로 표시됩니다.
+- 완전히 빈 줄은 `󰘌`([`empty_line_marker`](configuration.md#empty_line_marker)), 탭은 `>`, 줄 끝 공백은 `-`로 표시됩니다.
 - **Output**은 현재 케이스에서 프로그램이 stdout에 출력한 내용을 그대로 보여 줍니다.
 - **Runtime Error**는 결과가 `RE`일 때만 나타나며 런타임 에러의 원인을 설명합니다. 시그널 이름, 종료 코드, 또는 stderr에서 파싱한 힌트(`ZeroDivisionError`, `AddressSanitizer`, assertion 메시지 등)입니다.
 - **Stderr**는 보여 줄 내용이 있을 때만 나타납니다. 프로그램의 stderr, 또는 `CE`일 때 컴파일러 출력입니다.

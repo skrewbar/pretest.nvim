@@ -11,6 +11,8 @@ pretest.nvim은 Neovim 0.10+ 외에 런타임 의존성이 없는 순수 Lua 플
 - (Windows) `md5`, `openssl`, `md5sum`중 하나 \
   `.prob` 파일 이름 생성에 사용됩니다. \
   Git for Windows가 설치되어 있는 경우 `usr\bin`에 있는 `md5sum`과 `openssl`를 사용하면 됩니다.
+- (선택) [Nerd Font](https://www.nerdfonts.com/) \
+  기본 [`empty_line_marker`](configuration.md#empty_line_marker)가 Nerd Font 글리프이므로 터미널 글꼴이 Nerd Font가 아니라면 바꿔 주세요.
 
 ## lazy.nvim
 

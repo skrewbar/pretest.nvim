@@ -59,6 +59,7 @@ local M = {}
 ---@field default_memory_limit integer
 ---@field sidebar_sections { header: number, input: number, expected: number, output: number }
 ---@field float_sections { header: number, input: number, expected: number, output: number }
+---@field empty_line_marker string # "" hides it
 ---@field ui_keys pretest.UiKeys
 ---@field languages table<string, pretest.LangConfig>
 ---@field companion pretest.CompanionConfig
@@ -138,6 +139,8 @@ local defaults = {
     expected = 1,
     output = 1,
   },
+  -- U+F060C (Nerd Font nf-md-subdirectory_arrow_left)
+  empty_line_marker = "󰘌",
   ui_keys = {
     next_case = "<C-n>",
     prev_case = "<C-p>",

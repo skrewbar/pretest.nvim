@@ -460,6 +460,33 @@ case("readonly scope skips Input/Expected", function()
   end
 end)
 
+case("empty_line_marker marks empty lines", function()
+  local config = require("pretest.config")
+  local ns = vim.api.nvim_create_namespace("pretest_empty_eol")
+  local function markers(buf)
+    local rows = {}
+    for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })) do
+      rows[#rows + 1] = { m[2], m[4].virt_text[1][1] }
+    end
+    return rows
+  end
+  local saved = config.options.empty_line_marker
+  local ok, err = pcall(function()
+    local s = open_source({ { "1\n\n2", "a" } })
+    check_eq("default marker on row 1", markers(s.bufs.input), { { 1, saved } })
+    config.options.empty_line_marker = "⏎"
+    s = open_source({ { "1\n\n2", "a" } })
+    check_eq("custom marker", markers(s.bufs.input), { { 1, "⏎" } })
+    config.options.empty_line_marker = ""
+    s = open_source({ { "1\n\n2", "a" } })
+    check_eq("empty string hides markers", markers(s.bufs.input), {})
+  end)
+  config.options.empty_line_marker = saved
+  if not ok then
+    error(err, 0)
+  end
+end)
+
 case("header a / dd / {count}d", function()
   local s = open_source(THREE)
   local hwin = vim.fn.win_findbuf(s.bufs.header)[1]

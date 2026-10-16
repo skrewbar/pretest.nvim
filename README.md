@@ -23,6 +23,7 @@ A plugin for running testcases and checking the results in Neovim.
 - [Neovim](https://neovim.io/) 0.10 or newer
 - (Windows) One of `md5`, `openssl`, or `md5sum` on `PATH` \
   If Git for Windows is installed in `C:\Program Files\Git`, add `C:\Program Files\Git\usr\bin` to `PATH`.
+- (Optional) A [Nerd Font](https://www.nerdfonts.com/) for the default [empty line marker](docs/configuration.md#empty_line_marker)
 
 ## Quick start
 

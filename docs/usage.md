@@ -42,7 +42,7 @@ The sidebar layout (default, on the right) stacks the sections below vertically.
 - The **header** lists every testcase with its verdict, run time, and, for `RE`/`MLE`, a short reason. Moving the cursor onto a case line selects that case.
 - `<C-n>`/`<C-p>` also select cases.
 - **Input** / **Expected** are editable buffers (`filetype=pretest`).
-- Completely empty lines are shown as `↵`, tabs as `>`, and trailing spaces as `-`.
+- Completely empty lines are shown as `󰘌` ([`empty_line_marker`](configuration.md#empty_line_marker)), tabs as `>`, and trailing spaces as `-`.
 - **Output** shows exactly what the program printed to stdout for the current case.
 - **Runtime Error** appears only when the verdict is `RE` and explains the cause: a signal name, exit code, or a hint parsed from stderr (`ZeroDivisionError`, `AddressSanitizer`, assertion messages, …).
 - **Stderr** appears only when there is something to show: the program's stderr, or the compiler output on `CE`.

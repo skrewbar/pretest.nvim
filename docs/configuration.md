@@ -27,6 +27,8 @@ require("pretest").setup({
   -- Relative section heights
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  -- Marker on completely empty lines; "" hides it
+  empty_line_marker = "󰘌", -- U+F060C (Nerd Font)
 
   -- Default limits -----------------------------------------------------
   default_time_limit = 3000, -- ms
@@ -105,6 +107,14 @@ Relative weights for **header**, **Input**, **Expected**, and **Output**. Each s
 
 ```lua
 sidebar_sections = { header = 1, input = 2, expected = 2, output = 3 },
+```
+
+## `empty_line_marker`
+
+Character shown over completely empty lines in Input, Expected, Output, Runtime Error, and Stderr. The default is the Nerd Font glyph `󰘌` (U+F060C, `nf-md-subdirectory_arrow_left`). Without a Nerd Font, change it to another character or hide the marker with `""`.
+
+```lua
+empty_line_marker = "⏎", -- U+23CE, in most monospace fonts
 ```
 
 ## `ui_keys`

@@ -27,6 +27,8 @@ require("pretest").setup({
   -- 섹션의 상대 높이
   sidebar_sections = { header = 1, input = 1, expected = 1, output = 1 },
   float_sections = { header = 1, input = 1, expected = 1, output = 1 },
+  -- 완전히 빈 줄에 표시할 문자; ""이면 표시하지 않음
+  empty_line_marker = "󰘌", -- U+F060C (Nerd Font)
 
   -- 기본 제한 --------------------------------------------------
   default_time_limit = 3000, -- ms
@@ -105,6 +107,14 @@ float_height = 40,                            -- 정확히 40줄 (테두리 포�
 
 ```lua
 sidebar_sections = { header = 1, input = 2, expected = 2, output = 3 },
+```
+
+## `empty_line_marker`
+
+Input, Expected, Output, Runtime Error, Stderr에서 완전히 빈 줄 위에 표시하는 문자입니다. 기본값은 Nerd Font 글리프 `󰘌`(U+F060C, `nf-md-subdirectory_arrow_left`)입니다. Nerd Font가 없는 경우 다른 문자로 바꾸거나 `""`로 표시를 끌 수 있습니다.
+
+```lua
+empty_line_marker = "⏎", -- U+23CE, 대부분의 고정폭 글꼴에 있음
 ```
 
 ## `ui_keys`
