@@ -15,6 +15,8 @@ Every pretest action is available as `:Pretest <subcommand> [argument]`. `:Prete
 :Pretest add
 :Pretest edit [index]
 :Pretest delete [index]
+:Pretest copy [all | index ...] ["x]
+:Pretest paste ["x]
 :Pretest edit_name
 :Pretest edit_limits
 :Pretest rename <name>
@@ -22,7 +24,7 @@ Every pretest action is available as `:Pretest <subcommand> [argument]`. `:Prete
 :Pretest receive [problem | contest | persistently | stop | status]
 ```
 
-Commands that act on a problem (`run*`, `add`, `edit*`, `delete`, `rename`, `move`, `receive`) need a supported *source file*. Run them from a buffer whose filetype is configured under [`languages`](configuration.md#languages), or from a pretest UI window while a session is open.
+Commands that act on a problem (`run*`, `add`, `edit*`, `delete`, `copy`, `paste`, `rename`, `move`, `receive`) need a supported *source file*. Run them from a buffer whose filetype is configured under [`languages`](configuration.md#languages), or from a pretest UI window while a session is open.
 
 ## UI
 
@@ -50,10 +52,16 @@ Run commands save the source buffer first if it has unsaved changes, and open th
 | `add` | Append an empty testcase to the end of the list, select it, and move the cursor to **Input**. Opens the UI if it is closed. |
 | `edit [index]` | Open the UI and focus **Input**. With `index`, select that testcase. |
 | `delete [index]` | Delete the testcase selected in the UI, or testcase `index`, after a confirmation prompt. Stops a run in progress first. |
+| `copy [all \| index ...] ["x]` | Copy the selected testcase (no index), the testcases at the given indices (`:Pretest copy 1 3`), or every testcase (`all`) into a register. |
+| `paste ["x]` | Insert the testcases in a register right after the selected testcase and select the first of them. Stops a run in progress unless they are appended at the end. |
 | `edit_name` | Prompt for a new problem name. |
 | `edit_limits` | Prompt for the time limit (ms) and the memory limit (MB). A memory limit of `0` disables the memory check. |
 
 Input and Expected are saved automatically before a case switch, a run, closing, and exit.
+
+`copy` and `paste` take a register as `"x` (e.g. `:Pretest copy all "a`, `:Pretest paste "a`). Without one, they pick the register according to `'clipboard'`.
+
+An uppercase register (`"A`) appends to what the register holds when that is in the testcase format, and overwrites it otherwise. Testcases are stored as JSON (`{"tests":[{"input":…,"output":…}]}`), so `paste` also accepts a register holding a `.prob` file or a Competitive Companion task.
 
 Input and Expected are edited directly in their windows and can be saved with `:w`.
 
@@ -100,16 +108,19 @@ Default keys active in the pretest UI. Press `?` in any pretest window to list t
 | `a` | Normal | Header | Add a testcase (`add`) |
 | `dd` | Normal | Header | Delete the current testcase (`delete`) |
 | `{count}d` | Normal | Header | Delete testcase `{count}` (`delete {count}`) |
+| `yy` | Normal | Header | Copy the current testcase (`copy`) |
+| `{count}y` | Normal | Header | Copy testcase `{count}` (`copy {count}`) |
+| `p` | Normal | Header | Paste testcases after the current one (`paste`) |
 
-Deleting a testcase always asks for confirmation.
+Deleting a testcase always asks for confirmation. `yy`, `{count}y`, and `p` take a register like Vim (`"ayy`, `"ap`).
 
 In Input and Expected, `<C-a>` adds a testcase instead of Vim's increment. To keep the increment, set `add = "a"` in [`ui_keys`](configuration.md#ui_keys).
 
-Additional behavior that cannot be remapped:
+`<Tab>` and `<C-n>`/`<C-p>` are also bound in Insert mode. To unbind them in Insert mode, set `modes = "n"`.
+
+### Additional behavior that cannot be remapped
 
 - Moving the cursor onto a testcase line in the header selects that case.
-- `:q`, `:close`, or `<C-w>c` in any pretest window saves edits and closes the whole UI.
-
-`<Tab>` and `<C-n>`/`<C-p>` are also bound in Insert mode. To unbind them in Insert mode, set `modes = "n"`.
+- `:q`, `:close`, or `<C-w>c` in the pretest UI saves edits and closes the whole UI.
 
 See [`ui_keys`](configuration.md#ui_keys) for details.

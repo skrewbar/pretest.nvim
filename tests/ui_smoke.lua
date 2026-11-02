@@ -507,6 +507,152 @@ case("header a / dd / {count}d", function()
   check("d + other key cancels", #s.problem.tests == 2)
 end)
 
+---@return string[]
+local function inputs(s)
+  local out = {}
+  for i, tc in ipairs(s.problem.tests) do
+    out[i] = tc.input
+  end
+  return out
+end
+
+case("copy/paste inserts after the current case", function()
+  local s = open_source(THREE)
+  ui.goto_case(1)
+  -- Unsaved Input edits are copied.
+  vim.api.nvim_buf_set_lines(s.bufs.input, 0, -1, false, { "7 8" })
+  s.results = { [1] = AC(), [2] = WA(), [3] = AC("6") }
+  ui.copy_testcases()
+  ui.paste_testcases()
+  check_eq("pasted after case 1", inputs(s), { "7 8", "7 8", "4 5", "6" })
+  check_eq("Expected copied", s.problem.tests[2].output, "3")
+  check_eq("selects the pasted case", s.index, 2)
+  check_eq("Input shows it", lines(s.bufs.input), { "7 8" })
+  check("pasted case has no result", s.results[2] == nil)
+  check(
+    "later results shift",
+    s.results[1].verdict == "AC" and s.results[3].verdict == "WA" and s.results[4].stdout == "6"
+  )
+  local ids = {}
+  for _, tc in ipairs(s.problem.tests) do
+    ids[tc.id] = true
+  end
+  check_eq("ids stay unique", vim.tbl_count(ids), 4)
+  check_eq("saved to .prob", #prob.load_or_create(s.src_path).tests, 4)
+  check_header_full("after paste")
+end)
+
+case("paste into an empty problem", function()
+  vim.fn.setreg('"', require("pretest.util").encode_testcases({ { input = "1", output = "2" } }))
+  local s = open_source({})
+  ui.paste_testcases()
+  check_eq("one case", inputs(s), { "1" })
+  check_eq("selects it", s.index, 1)
+  check_header_full("after paste")
+end)
+
+case("named registers carry testcases to another source", function()
+  open_source(THREE)
+  vim.fn.setreg('"', "keep")
+  vim.cmd('Pretest copy all "a')
+  vim.cmd('Pretest copy 3 "A')
+  check_eq('"" untouched', vim.fn.getreg('"'), "keep")
+  local other = open_source({ { "x", "y" } })
+  vim.cmd('Pretest paste "a')
+  check_eq("pasted after case 1", inputs(other), { "x", "1 2", "4 5", "6", "6" })
+  check_eq("selects the first pasted case", other.index, 2)
+end)
+
+case("invalid registers leave testcases alone", function()
+  local s = open_source(THREE)
+  local notified = {}
+  local notify = vim.notify
+  vim.notify = function(msg, level)
+    notified[#notified + 1] = { msg, level }
+  end
+  local ok, err = pcall(function()
+    vim.fn.setreg("b", "not json")
+    ui.paste_testcases("b")
+    check_eq("bad register: no change", #s.problem.tests, 3)
+    check("bad register warns", notified[1] and notified[1][2] == vim.log.levels.WARN)
+    ui.copy_testcases(nil, "%")
+    check("read-only register errors", notified[2] and notified[2][2] == vim.log.levels.ERROR)
+    vim.cmd('Pretest copy 1 "a "b')
+    check("two registers error", notified[3] and notified[3][2] == vim.log.levels.ERROR)
+  end)
+  vim.notify = notify
+  if not ok then
+    error(err, 0)
+  end
+end)
+
+case("default register follows 'clipboard'", function()
+  local util = require("pretest.util")
+  local saved = vim.o.clipboard
+  check_eq("empty", util.default_register(), '"')
+  vim.o.clipboard = "unnamed"
+  check_eq("unnamed", util.default_register(), "*")
+  vim.o.clipboard = "unnamed,unnamedplus"
+  check_eq("unnamedplus wins", util.default_register(), "+")
+  vim.o.clipboard = saved
+end)
+
+case('header {count}y / p / "ayy', function()
+  local s = open_source(THREE)
+  local hwin = vim.fn.win_findbuf(s.bufs.header)[1]
+  ui.goto_case(1)
+  vim.api.nvim_set_current_win(hwin)
+  vim.fn.setreg('"', "")
+  vim.api.nvim_feedkeys("3y", "x", false)
+  vim.api.nvim_feedkeys("p", "x", false)
+  check_eq("3y then p", inputs(s), { "1 2", "6", "4 5", "6" })
+  check_eq("header cursor on the pasted row", vim.api.nvim_win_get_cursor(hwin), { 6, 0 })
+  vim.api.nvim_feedkeys('"ayy', "x", false)
+  local util = require("pretest.util")
+  check_eq('"ayy copies the current case', util.decode_testcases(vim.fn.getreg("a")), {
+    { input = "6", output = "6" },
+  })
+  vim.fn.setreg("a", "")
+  vim.api.nvim_feedkeys('"ayj', "x", false)
+  check_eq("y + other key cancels", vim.fn.getreg("a"), "")
+  local header, input = buf_maps(s.bufs.header), buf_maps(s.bufs.input)
+  check("header has y / p", header["y"] and header["p"])
+  check("Input has no y / p", not input["y"] and not input["p"])
+end)
+
+case("longer count keys act on the current case with one press", function()
+  local config = require("pretest.config")
+  local util = require("pretest.util")
+  local saved = config.options.ui_keys.copy
+  config.options.ui_keys.copy = { "gy", "<C-y>" }
+  local ok, err = pcall(function()
+    local s = open_source(THREE)
+    local hwin = vim.fn.win_findbuf(s.bufs.header)[1]
+    ui.goto_case(2)
+    vim.api.nvim_set_current_win(hwin)
+    vim.api.nvim_feedkeys('"agy', "x", false)
+    check_eq("gy copies the current case", util.decode_testcases(vim.fn.getreg("a")), {
+      { input = "4 5", output = "9" },
+    })
+    vim.api.nvim_feedkeys('"a3gy', "x", false)
+    check_eq("{count}gy copies that case", util.decode_testcases(vim.fn.getreg("a")), {
+      { input = "6", output = "6" },
+    })
+    vim.api.nvim_feedkeys('"a' .. vim.keycode("<C-y>"), "x", false)
+    check_eq("<C-y> copies the current case", util.decode_testcases(vim.fn.getreg("a")), {
+      { input = "4 5", output = "9" },
+    })
+    ui.help()
+    local text = table.concat(lines(vim.api.nvim_get_current_buf()), "\n")
+    check("help lists gy, not gygy", text:find("{count}gy", 1, true) ~= nil and not text:find("gygy", 1, true))
+    ui.help()
+  end)
+  config.options.ui_keys.copy = saved
+  if not ok then
+    error(err, 0)
+  end
+end)
+
 ---@return integer[]
 local function ids_of(tests)
   local out = {}
@@ -589,6 +735,7 @@ case("help float toggles", function()
   check("opens a float", #vim.api.nvim_list_wins() == before + 1 and vim.api.nvim_win_get_config(win).relative ~= "")
   local text = table.concat(lines(vim.api.nvim_win_get_buf(win)), "\n")
   check("lists dd and {count}d", text:find("dd", 1, true) ~= nil and text:find("{count}d", 1, true) ~= nil)
+  check("lists yy and {count}y", text:find("yy", 1, true) ~= nil and text:find("{count}y", 1, true) ~= nil)
   ui.help()
   check("second call closes it", #vim.api.nvim_list_wins() == before)
   check("UI still open", ui.is_open())

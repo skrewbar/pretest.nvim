@@ -1422,6 +1422,35 @@ local function show_case(index)
   end)
 end
 
+---Single-character keys act on the current case when doubled (`yy`, `dd`), like
+---Vim operators; longer keys (`gy`, `<C-y>`) act on it with one press.
+---@param lhs string
+---@return boolean
+local function needs_repeat(lhs)
+  return vim.fn.strchars(lhs) == 1
+end
+
+---Read the target of a count key: `{count}{lhs}` gives `count`; the current case
+---(`{lhs}{lhs}`, or `{lhs}` when `needs_repeat` is false) gives 0. Reads the second key
+---itself, so there is no `{lhs}` / `{lhs}{lhs}` timeoutlen wait.
+---@param bind pretest.UiKeyBinding
+---@return integer|nil # nil when another key was typed
+local function read_count(bind)
+  local count = vim.v.count
+  if count > 0 then
+    return count
+  end
+  if not needs_repeat(bind.lhs) then
+    return 0
+  end
+
+  local ok, key = pcall(vim.fn.getcharstr)
+  if not ok or key ~= bind.lhs then
+    return nil
+  end
+  return 0
+end
+
 local UI_KEY_ACTIONS = {
   next_case = function()
     M.next_case()
@@ -1464,28 +1493,26 @@ local UI_KEY_ACTIONS = {
   add = function()
     M.add_testcase()
   end,
-  ---`{count}{lhs}` deletes testcase {count}; `{lhs}{lhs}` deletes the current one.
-  ---Reads the second key itself, so there is no `{lhs}` / `{lhs}{lhs}` timeoutlen wait.
+  ---`{count}{lhs}` deletes testcase {count}; otherwise the current one (see `read_count`).
   ---@param bind pretest.UiKeyBinding
   delete = function(bind)
-    local count = vim.v.count
-    if count > 0 then
-      M.delete_testcase(count)
-      return
+    local count = read_count(bind)
+    if count then
+      M.delete_testcase(count > 0 and count or nil)
     end
-    local target = vim.keycode(bind.lhs)
-    local typed = ""
-    while #typed < #target do
-      local ok, key = pcall(vim.fn.getcharstr)
-      if not ok then
-        return
-      end
-      typed = typed .. key
-      if target:sub(1, #typed) ~= typed then
-        return
-      end
+  end,
+  ---`{count}{lhs}` copies testcase {count}; otherwise the current one (see `read_count`).
+  ---@param bind pretest.UiKeyBinding
+  copy = function(bind)
+    -- Read before getcharstr(): `"a` applies to this key only.
+    local reg = vim.v.register
+    local count = read_count(bind)
+    if count then
+      M.copy_testcases(count > 0 and { count } or nil, reg)
     end
-    M.delete_testcase()
+  end,
+  paste = function()
+    M.paste_testcases(vim.v.register)
   end,
   help = function()
     M.help()
@@ -1505,6 +1532,8 @@ local UI_KEY_HELP = {
   { "stop", "Stop run" },
   { "add", "Add testcase" },
   { "delete", "Delete testcase" },
+  { "copy", "Copy testcase" },
+  { "paste", "Paste testcases after current" },
   { "close", "Close UI" },
   { "help", "Show keys" },
 }
@@ -2158,6 +2187,12 @@ local function close_help()
   help_win = nil
 end
 
+---Help rows for count keys: the current case (see `read_count`) and `{count}{lhs}`.
+local COUNT_KEY_HELP = {
+  delete = { "Delete current testcase", "Delete testcase {count}" },
+  copy = { "Copy current testcase", "Copy testcase {count}" },
+}
+
 ---@return string[] lines
 ---@return { row: integer, col: integer, end_col: integer, hl: string }[] marks
 local function help_content()
@@ -2179,10 +2214,11 @@ local function help_content()
     end
     for scope, lhs_list in pairs(keys) do
       local rows = by_scope[scope].rows
-      if name == "delete" then
+      local count_help = COUNT_KEY_HELP[name]
+      if count_help then
         for _, lhs in ipairs(lhs_list) do
-          table.insert(rows, { lhs .. lhs, "Delete current testcase" })
-          table.insert(rows, { "{count}" .. lhs, "Delete testcase {count}" })
+          table.insert(rows, { needs_repeat(lhs) and lhs .. lhs or lhs, count_help[1] })
+          table.insert(rows, { "{count}" .. lhs, count_help[2] })
         end
       else
         table.insert(rows, { table.concat(lhs_list, " / "), desc })
@@ -2454,23 +2490,27 @@ local function stop_run(s)
   return true
 end
 
----Drop `deleted` and shift later result slots down. Sparse keys are remapped
----explicitly so `#results` holes do not drop later verdicts.
+---Shift result slots at or after `at` by `delta`; a negative `delta` first drops
+---`at .. at - delta - 1`. Sparse keys are remapped explicitly so `#results` holes
+---do not drop later verdicts.
 ---@param results table<integer, pretest.CaseResult>
----@param deleted integer
+---@param at integer
+---@param delta integer
 ---@return table<integer, pretest.CaseResult>
-local function remap_results(results, deleted)
-  local removed = {}
+local function shift_results(results, at, delta)
+  local shifted = {}
+
   for i, r in pairs(results) do
     if type(i) == "number" then
-      if i < deleted then
-        removed[i] = r
-      elseif i > deleted then
-        removed[i - 1] = r
+      if i < at then
+        shifted[i] = r
+      elseif i >= at - math.min(delta, 0) then
+        shifted[i + delta] = r
       end
     end
   end
-  return removed
+
+  return shifted
 end
 
 ---@param index integer|nil
@@ -2494,7 +2534,7 @@ function M.delete_testcase(index)
   M.flush_edits()
   stop_run(s)
   prob.delete_testcase(s.problem, index)
-  s.results = remap_results(s.results, index)
+  s.results = shift_results(s.results, index, -1)
   if #s.problem.tests == 0 then
     s.index = 0
   else
@@ -2509,6 +2549,100 @@ function M.delete_testcase(index)
       refresh_result_view()
     end)
   end
+end
+
+---@param n integer
+---@return string
+local function testcases_label(n)
+  return ("%d testcase%s"):format(n, n == 1 and "" or "s")
+end
+
+---Copy testcases (default: the current one) into register `reg` (default:
+---per 'clipboard'). An uppercase register appends like Vim's `"A`.
+---@param indices integer[]|nil
+---@param reg string|nil
+function M.copy_testcases(indices, reg)
+  local s = M.ensure_session()
+  if not s then
+    return
+  end
+
+  reg = reg or util.default_register()
+  if not reg:match('^[%w"+*-]$') then
+    util.notify(("cannot copy to register %s"):format(reg), vim.log.levels.ERROR)
+    return
+  end
+
+  if #s.problem.tests == 0 then
+    util.notify("no testcases", vim.log.levels.WARN)
+    return
+  end
+
+  M.flush_edits()
+  indices = indices or { s.index }
+  local cases = {}
+  for _, i in ipairs(indices) do
+    local tc = s.problem.tests[i]
+    if not tc then
+      util.notify("invalid testcase index", vim.log.levels.ERROR)
+      return
+    end
+    cases[#cases + 1] = { input = tc.input, output = tc.output }
+  end
+
+  local target = reg
+  if reg:match("^%u$") then
+    target = reg:lower()
+    local prev = util.decode_testcases(vim.fn.getreg(target))
+    if prev then
+      cases = vim.list_extend(prev, cases)
+    end
+  end
+
+  local ok, ret = pcall(vim.fn.setreg, target, util.encode_testcases(cases), "l")
+  if not ok or ret ~= 0 then
+    util.notify(("failed to write register %s"):format(target), vim.log.levels.ERROR)
+    return
+  end
+
+  util.notify(('copied %s to "%s'):format(testcases_label(#indices), target))
+end
+
+---Insert the testcases in register `reg` (default: per 'clipboard') after the
+---current one and select the first of them.
+---@param reg string|nil
+function M.paste_testcases(reg)
+  local s = M.ensure_session()
+  if not s then
+    return
+  end
+  reg = reg or util.default_register()
+  local cases = util.decode_testcases(vim.fn.getreg(reg))
+  if not cases then
+    util.notify(("register %s has no testcases"):format(reg), vim.log.levels.WARN)
+    return
+  end
+  M.flush_edits()
+  local pos = s.index + 1
+  -- Only an insert before existing cases moves their indices under a run.
+  if pos <= #s.problem.tests then
+    stop_run(s)
+  end
+  prob.insert_testcases(s.problem, pos, cases)
+  s.results = shift_results(s.results, pos, #cases)
+  s.index = pos
+  prob.save(s.problem, s.prob_path)
+  -- Even with the UI closed: flush_edits later reads these buffers into tests[index].
+  load_edit_bufs()
+  if M.is_open() then
+    with_applying(function()
+      render_header()
+      refresh_result_view()
+    end)
+    -- `p` in the header: keep the cursor on the selected (first pasted) row.
+    sync_header_cursor()
+  end
+  util.notify(("pasted %s"):format(testcases_label(#cases)))
 end
 
 ---Return true if language run config for `src_path`/`ft` is usable; otherwise notify and return false.

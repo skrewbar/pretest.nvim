@@ -15,6 +15,8 @@ pretest의 모든 동작은 `:Pretest <subcommand> [argument]`로 실행할 수 
 :Pretest add
 :Pretest edit [index]
 :Pretest delete [index]
+:Pretest copy [all | index ...] ["x]
+:Pretest paste ["x]
 :Pretest edit_name
 :Pretest edit_limits
 :Pretest rename <name>
@@ -22,7 +24,7 @@ pretest의 모든 동작은 `:Pretest <subcommand> [argument]`로 실행할 수 
 :Pretest receive [problem | contest | persistently | stop | status]
 ```
 
-문제를 다루는 명령(`run*`, `add`, `edit*`, `delete`, `rename`, `move`, `receive`)은 지원되는 *소스 파일*이 필요합니다. [`languages`](configuration.md#languages)에 설정된 filetype의 버퍼에서 실행하거나, 세션이 열려 있는 동안 pretest UI 창에서 실행해야 합니다.
+문제를 다루는 명령(`run*`, `add`, `edit*`, `delete`, `copy`, `paste`, `rename`, `move`, `receive`)은 지원되는 *소스 파일*이 필요합니다. [`languages`](configuration.md#languages)에 설정된 filetype의 버퍼에서 실행하거나, 세션이 열려 있는 동안 pretest UI 창에서 실행해야 합니다.
 
 ## UI
 
@@ -50,10 +52,16 @@ pretest의 모든 동작은 `:Pretest <subcommand> [argument]`로 실행할 수 
 | `add` | 빈 테스트케이스를 목록의 맨 마지막에 추가하고 선택한 뒤 커서를 **Input**으로 옮깁니다. UI가 닫혀있다면 엽니다. |
 | `edit [index]` | UI를 열고 커서를 **Input**으로 옮깁니다. `index`가 있으면 해당 테스트케이스를 선택합니다. |
 | `delete [index]` | 확인을 받은 뒤 UI에서 선택된 테스트케이스 또는 `index`번 테스트케이스를 삭제합니다. 실행 중이면 실행을 멈춘 뒤 삭제합니다. |
+| `copy [all \| index ...] ["x]` | 선택된 테스트케이스(index 생략), 지정한 index의 테스트케이스(`:Pretest copy 1 3`), 또는 전체(`all`)를 레지스터에 복사합니다. |
+| `paste ["x]` | 레지스터의 테스트케이스를 선택된 테스트케이스 바로 뒤에 삽입하고, 그중 첫 번째를 선택합니다. 맨 마지막에 추가하는 것이 아니라면 실행 중인 채점을 멈춥니다. |
 | `edit_name` | 문제 이름을 입력받아 변경합니다. |
 | `edit_limits` | 시간 제한(ms)과 메모리 제한(MB)을 각각 입력받아 변경합니다. 메모리 제한을 `0`으로 지정하면 메모리 제한을 검사하지 않습니다. |
 
 Input과 Expected는 케이스 전환, 실행, 닫기, 종료 전 자동 저장됩니다.
+
+`copy`와 `paste`는 `"x` 형태로 레지스터를 받습니다(예: `:Pretest copy all "a`, `:Pretest paste "a`). 지정하지 않으면 `'clipboard'`에 따라 레지스터를 고릅니다.
+
+대문자 레지스터(`"A`)는 레지스터에 담겨 있던 값이 테스트케이스 형식인 경우 뒤에 추가하고, 그렇지 않으면 덮어씁니다. 테스트케이스는 JSON(`{"tests":[{"input":…,"output":…}]}`)으로 저장되므로, `.prob` 파일이나 Competitive Companion task가 담긴 레지스터도 `paste`할 수 있습니다.
 
 Input과 Expected는 해당 창에서 직접 편집하고 `:w`로 저장할 수 있습니다.
 
@@ -100,16 +108,19 @@ pretest UI에서 동작하는 기본 키입니다. pretest 창에서 `?`를 누�
 | `a` | Normal | 헤더 | 테스트케이스 추가 (`add`) |
 | `dd` | Normal | 헤더 | 현재 테스트케이스 삭제 (`delete`) |
 | `{count}d` | Normal | 헤더 | `{count}`번 테스트케이스 삭제 (`delete {count}`) |
+| `yy` | Normal | 헤더 | 현재 테스트케이스 복사 (`copy`) |
+| `{count}y` | Normal | 헤더 | `{count}`번 테스트케이스 복사 (`copy {count}`) |
+| `p` | Normal | 헤더 | 현재 테스트케이스 뒤에 붙여넣기 (`paste`) |
 
-테스트케이스를 삭제할 때는 항상 확인을 받습니다.
+테스트케이스를 삭제할 때는 항상 확인을 받습니다. `yy`, `{count}y`, `p`는 Vim처럼 레지스터를 받습니다(`"ayy`, `"ap`).
 
-Input, Expected에서는 `<C-a>`가 Vim의 숫자 증가 대신 테스트케이스 추가로 동작합니다. 숫자 증가를 쓰려면 [`ui_keys`](configuration.md#ui_keys)에서 `add = "a"`로 바꾸세요.
-
-키맵으로 바꿀 수 없는 추가 동작:
-
-- 헤더의 테스트케이스 줄로 커서를 옮기면 그 케이스가 선택됩니다.
-- pretest 창 어디서든 `:q`, `:close`, `<C-w>c`는 편집 내용을 저장한 뒤 UI 전체를 닫습니다.
+Input, Expected에서는 `<C-a>`가 Vim의 숫자 증가 대신 테스트케이스 추가로 동작합니다. 숫자 증가를 쓰려는 경우 [`ui_keys`](configuration.md#ui_keys)에서 `add = "a"`로 바꾸면 됩니다.
 
 `<Tab>`과 `<C-n>`/`<C-p>`는 Insert 모드에도 바인딩되어 있습니다. Insert모드에서 해당 바인딩을 해제하려면 `modes = "n"`을 지정하면 됩니다.
+
+### 키맵으로 바꿀 수 없는 추가 동작
+
+- 헤더의 테스트케이스 줄로 커서를 옮기면 그 케이스가 선택됩니다.
+- pretest UI에서 `:q`, `:close`, `<C-w>c`를 실행하면 편집 내용을 저장한 뒤 UI 전체를 닫습니다.
 
 자세한 내용은 [`ui_keys`](configuration.md#ui_keys)를 참고하세요.

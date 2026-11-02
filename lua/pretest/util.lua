@@ -412,6 +412,53 @@ function M.all_indices(n)
   return out
 end
 
+---Register used when none is given: follows 'clipboard' like `v:register`.
+---@return string
+function M.default_register()
+  local cb = vim.opt.clipboard:get()
+
+  if vim.tbl_contains(cb, "unnamedplus") then
+    return "+"
+  elseif vim.tbl_contains(cb, "unnamed") then
+    return "*"
+  end
+
+  return '"'
+end
+
+---Serialize testcases for a register (`{"tests":[{input, output}, ...]}`).
+---@param tests { input: string, output: string }[]
+---@return string
+function M.encode_testcases(tests)
+  local out = {}
+  for i, tc in ipairs(tests) do
+    out[i] = { input = M.ensure_string(tc.input), output = M.ensure_string(tc.output) }
+  end
+  return vim.json.encode({ tests = out })
+end
+
+---Parse register text from `encode_testcases`. Any JSON object with a `tests`
+---array of `{input, output}` strings works, so `.prob` and Companion task JSON do too.
+---@param text string|nil
+---@return { input: string, output: string }[]|nil nil unless at least one valid testcase
+function M.decode_testcases(text)
+  if type(text) ~= "string" or text == "" then
+    return nil
+  end
+  local ok, data = pcall(vim.json.decode, text)
+  if not ok or type(data) ~= "table" or type(data.tests) ~= "table" or #data.tests == 0 then
+    return nil
+  end
+  local out = {}
+  for i, tc in ipairs(data.tests) do
+    if type(tc) ~= "table" or type(tc.input) ~= "string" or type(tc.output) ~= "string" then
+      return nil
+    end
+    out[i] = { input = tc.input, output = tc.output }
+  end
+  return out
+end
+
 ---@param bufnr integer|nil
 ---@return string|nil path
 ---@return string|nil filetype # nil only when path is nil; otherwise string (possibly "")

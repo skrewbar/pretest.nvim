@@ -40,6 +40,8 @@ local M = {}
 ---@field run_one_no_compile pretest.UiKeySpec
 ---@field add pretest.UiKeySpec
 ---@field delete pretest.UiKeySpec
+---@field copy pretest.UiKeySpec
+---@field paste pretest.UiKeySpec
 ---@field help pretest.UiKeySpec
 
 ---@class pretest.Config
@@ -154,6 +156,8 @@ local defaults = {
     run_one_no_compile = "g<CR>",
     add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } },
     delete = "d",
+    copy = "y",
+    paste = "p",
     help = "?",
   },
   languages = {
@@ -206,6 +210,8 @@ local UI_KEY_MODES = {
   run_one_no_compile = { "n" },
   add = { "n" },
   delete = { "n" },
+  copy = { "n" },
+  paste = { "n" },
   help = { "n" },
 }
 
@@ -213,6 +219,8 @@ local UI_KEY_MODES = {
 local UI_KEY_SCOPES = {
   add = "header",
   delete = "header",
+  copy = "header",
+  paste = "header",
 }
 
 local VALID_SCOPES = { all = true, readonly = true, header = true }

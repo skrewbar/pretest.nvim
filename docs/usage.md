@@ -75,6 +75,12 @@ Leading and trailing blank lines are stored exactly as typed. They do not affect
 
 In the header, `dd` removes the current case and `{count}d` removes the case with that number (e.g. `3d` removes case 3). `:Pretest delete` and `:Pretest delete 3` do the same from anywhere. pretest asks for confirmation every time, and a run in progress is stopped first.
 
+### Copying and pasting
+
+In the header, `yy` copies the current case and `{count}y` copies case `{count}` into a register. `p` pastes the cases stored in the register after the current case, then selects the first pasted case. `:Pretest copy` and `:Pretest paste` do the same.
+
+`"ayy` / `:Pretest copy all "a` copy into register `a`, and `"ap` / `:Pretest paste "a` paste from register `a`. Without a register, the one chosen by `'clipboard'` is used.
+
 ### Name and limits
 
 The header is read-only, so you must change it with commands.

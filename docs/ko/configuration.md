@@ -48,6 +48,8 @@ require("pretest").setup({
     run_one_no_compile = "g<CR>",
     add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } }, -- a: 헤더에서만
     delete = "d", -- 헤더에서만: dd = 현재, {count}d = {count}번 테스트케이스
+    copy = "y", -- 헤더에서만: yy = 현재, {count}y = {count}번 테스트케이스
+    paste = "p", -- 헤더에서만
     help = "?",
   },
 
@@ -144,9 +146,13 @@ pretest UI 안에서만 매핑되는(버퍼 로컬) 키입니다. UI 버퍼에�
 | `"readonly"` | 헤더, Output, Runtime Error, Stderr |
 | `"header"` | 헤더만 |
 
-기본적으로 `add`, `delete`는 `"header"`, 나머지는 `"all"`입니다. 기본값 중 `add`의 `<C-a>`는 직접 `scope = "all"`을 지정합니다.
+기본적으로 `add`, `delete`, `copy`, `paste`는 `"header"`, 나머지는 `"all"`입니다.
 
-`delete`는 count를 받습니다. `{count}{키}`는 `{count}`번 테스트케이스를 삭제하고, 키를 두 번 누르면 현재 테스트케이스를 삭제합니다. 어느 쪽이든 삭제 전에 확인을 받습니다.
+단, 위 설정에서 알 수 있듯이 `add`의 `<C-a>`는 `"all"`로 지정되어 있습니다.
+
+`delete`는 count를 받습니다. `{count}{키}`는 `{count}`번 테스트케이스를 삭제합니다. count 없이 누르면 현재 테스트케이스를 삭제합니다. 이때 한 글자 키는 두 번(`dd`), `gd`나 `<C-d>`처럼 한 글자보다 긴 경우에는 한 번 눌러서 삭제할 수 있습니다. 삭제하기 전에는 항상 확인을 받습니다.
+
+`copy`도 `delete`와 같은 방식으로 count를 받습니다(`yy`, `{count}y` 또는 `gy`, `{count}gy`). `copy`와 `paste`는 키 앞에 입력한 레지스터(`"ayy`)를 쓰고, 없으면 `'clipboard'`를 따릅니다.
 
 ```lua
 ui_keys = {

@@ -13,6 +13,8 @@ local subcommands = {
   "add",
   "edit",
   "delete",
+  "copy",
+  "paste",
   "edit_limits",
   "edit_name",
   "rename",
@@ -34,6 +36,7 @@ local receive_subcommands = {
 ---@return integer[]|nil nil on parse error
 local function parse_indices(args, n)
   local out = {}
+
   for _, s in ipairs(args) do
     local idx = tonumber(s)
     if not idx or idx ~= math.floor(idx) or idx < 1 or idx > n then
@@ -42,6 +45,7 @@ local function parse_indices(args, n)
     end
     out[#out + 1] = idx
   end
+
   return out
 end
 
@@ -79,6 +83,69 @@ local function run_current(do_compile)
   ui.run({ idx }, do_compile)
 end
 
+---Split a `"x` register argument off `args`.
+---@param args string[]
+---@return string[]|nil rest nil on error
+---@return string|nil reg
+local function take_register(args)
+  local rest, reg = {}, nil
+
+  for _, a in ipairs(args) do
+    if a:match('^".$') then
+      if reg then
+        util.notify("only one register allowed", vim.log.levels.ERROR)
+        return nil
+      end
+      reg = a:sub(2)
+    else
+      rest[#rest + 1] = a
+    end
+  end
+
+  return rest, reg
+end
+
+---@param args string[]
+local function copy(args)
+  local rest, reg = take_register(args)
+
+  if not rest then
+    return
+  end
+
+  local s = ui.ensure_session()
+  if not s then
+    return
+  end
+
+  local indices
+  if #rest == 1 and rest[1] == "all" then
+    indices = util.all_indices(#s.problem.tests)
+  elseif #rest > 0 then
+    indices = parse_indices(rest, #s.problem.tests)
+    if not indices then
+      return
+    end
+  end
+
+  ui.copy_testcases(indices, reg)
+end
+
+---@param args string[]
+local function paste(args)
+  local rest, reg = take_register(args)
+  if not rest then
+    return
+  end
+
+  if #rest > 0 then
+    util.notify('usage: Pretest paste ["x]', vim.log.levels.WARN)
+    return
+  end
+
+  ui.paste_testcases(reg)
+end
+
 ---@param args string
 function M.command(args)
   local parts = vim.split(args, " ", { plain = true, trimempty = true })
@@ -105,6 +172,10 @@ function M.command(args)
   elseif sub == "delete" then
     local idx = tonumber(parts[2])
     ui.delete_testcase(idx)
+  elseif sub == "copy" then
+    copy(vim.list_slice(parts, 2))
+  elseif sub == "paste" then
+    paste(vim.list_slice(parts, 2))
   elseif sub == "edit_limits" then
     ui.edit_limits()
   elseif sub == "edit_name" then
@@ -165,6 +236,12 @@ function M.complete(arglead, cmdline)
     and ((#parts == 2 and cmdline:match("%s$")) or (#parts >= 3 and not cmdline:match("%s$")))
   if completing_path then
     return vim.fn.getcompletion(arglead, "file")
+  end
+
+  local completing_copy = parts[2] == "copy"
+    and ((#parts == 2 and cmdline:match("%s$")) or (#parts == 3 and not cmdline:match("%s$")))
+  if completing_copy then
+    return vim.startswith("all", arglead) and { "all" } or {}
   end
 
   local completing_receive = parts[2] == "receive"

@@ -48,6 +48,8 @@ require("pretest").setup({
     run_one_no_compile = "g<CR>",
     add = { "a", { "<C-a>", modes = { "n", "i" }, scope = "all" } }, -- a: header only
     delete = "d", -- header only: dd = current, {count}d = testcase {count}
+    copy = "y", -- header only: yy = current, {count}y = testcase {count}
+    paste = "p", -- header only
     help = "?",
   },
 
@@ -144,9 +146,13 @@ Setting an action replaces its default; omitted actions keep theirs.
 | `"readonly"` | Header, Output, Runtime Error, and Stderr |
 | `"header"` | Header only |
 
-The default is `"header"` for `add` and `delete`, and `"all"` for the rest. The default `<C-a>` of `add` sets `scope = "all"` itself.
+The default is `"header"` for `add`, `delete`, `copy`, and `paste`, and `"all"` for the rest.
 
-`delete` reads a count: `{count}{key}` deletes testcase `{count}`, and pressing the key twice deletes the current testcase. Either way it asks for confirmation.
+As the defaults above show, however, the `<C-a>` of `add` is set to `"all"`.
+
+`delete` reads a count: `{count}{key}` deletes testcase `{count}`. Without a count, it deletes the current testcase: press a single-character key twice (`dd`), and a longer key such as `gd` or `<C-d>` once. It always asks for confirmation before deleting.
+
+`copy` reads a count the same way as `delete` (`yy`, `{count}y`, or `gy`, `{count}gy`). `copy` and `paste` use the register typed before the key (`"ayy`), and follow `'clipboard'` otherwise.
 
 ```lua
 ui_keys = {
