@@ -33,6 +33,47 @@ function M.prob_path(src_path)
   return vim.fs.joinpath(dir, string.format(".%s_%s.prob", base, hash))
 end
 
+-- Largest integer a double (and JavaScript) represents exactly.
+local MAX_ID = 2 ^ 53 - 1
+
+---@param id any
+---@return boolean
+local function is_valid_id(id)
+  return type(id) == "number" and id == math.floor(id) and id >= 1 and id <= MAX_ID
+end
+
+---Return a function yielding ids unused in `tests`: one above the largest valid
+---id, or the smallest free positive integer once that would pass `MAX_ID`.
+---@param tests pretest.TestCase[]
+---@return fun(): integer
+local function id_allocator(tests)
+  local used, max_id = {}, 0
+  for _, tc in ipairs(tests) do
+    if is_valid_id(tc.id) then
+      used[tc.id] = true
+      max_id = math.max(max_id, tc.id)
+    end
+  end
+
+  local free = 1
+  return function()
+    local id
+
+    if max_id < MAX_ID then
+      max_id = max_id + 1
+      id = max_id
+    else
+      while used[free] do
+        free = free + 1
+      end
+      id = free
+    end
+    used[id] = true
+
+    return id
+  end
+end
+
 ---@param src_path string
 ---@return pretest.Problem
 function M.new_local(src_path)
@@ -86,10 +127,22 @@ function M.load_or_create(src_path)
     data["local"] = true
   end
 
+  -- Keep the first of each valid id; renumber repeats and missing/invalid ids.
+  local seen, renumber = {}, {}
   for _, tc in ipairs(data.tests) do
     tc.input = util.ensure_string(tc.input)
     tc.output = util.ensure_string(tc.output)
-    tc.id = tc.id or math.floor(vim.uv.hrtime() / 1000)
+
+    if is_valid_id(tc.id) and not seen[tc.id] then
+      seen[tc.id] = true
+    else
+      renumber[#renumber + 1] = tc
+    end
+  end
+
+  local next_id = id_allocator(data.tests)
+  for _, tc in ipairs(renumber) do
+    tc.id = next_id()
   end
 
   return data --[[@as pretest.Problem]], path
@@ -174,10 +227,10 @@ end
 ---@return pretest.TestCase[]
 local function tests_from_companion(tests)
   local out = {}
-  local base = math.floor(vim.uv.hrtime() / 1000)
+  local next_id = id_allocator(out)
   for i, tc in ipairs(tests or {}) do
     out[i] = {
-      id = base + i,
+      id = next_id(),
       input = util.ensure_string(tc.input),
       output = util.ensure_string(tc.output),
     }
@@ -214,12 +267,27 @@ end
 ---@return pretest.TestCase
 function M.add_testcase(problem)
   local tc = {
-    id = math.floor(vim.uv.hrtime() / 1000),
+    id = id_allocator(problem.tests)(),
     input = "",
     output = "",
   }
   table.insert(problem.tests, tc)
   return tc
+end
+
+---Insert copies of `cases` starting at `pos` (1-based) with ids unused in `problem`.
+---@param problem pretest.Problem
+---@param pos integer
+---@param cases { input: string, output: string }[]
+function M.insert_testcases(problem, pos, cases)
+  local next_id = id_allocator(problem.tests)
+  for i, tc in ipairs(cases) do
+    table.insert(problem.tests, pos + i - 1, {
+      id = next_id(),
+      input = util.ensure_string(tc.input),
+      output = util.ensure_string(tc.output),
+    })
+  end
 end
 
 ---@param problem pretest.Problem

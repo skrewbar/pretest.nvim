@@ -225,11 +225,10 @@ local function store_testcases(bufnr, task)
       return false
     end
     if choice == 1 then
-      local merged = vim.deepcopy(existing.tests)
-      for _, tc in ipairs(incoming.tests) do
-        merged[#merged + 1] = tc
-      end
-      incoming.tests = merged
+      local received = incoming.tests
+      incoming.tests = vim.deepcopy(existing.tests)
+      -- Received cases are numbered from 1; renumber them past the kept ones.
+      prob.insert_testcases(incoming, #incoming.tests + 1, received)
     end
   end
 

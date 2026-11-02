@@ -507,6 +507,51 @@ case("header a / dd / {count}d", function()
   check("d + other key cancels", #s.problem.tests == 2)
 end)
 
+---@return integer[]
+local function ids_of(tests)
+  local out = {}
+  for i, tc in ipairs(tests) do
+    out[i] = tc.id
+  end
+  return out
+end
+
+case("loading renumbers repeated and invalid ids", function()
+  seq = seq + 1
+  local path = tmp .. "/ids" .. seq .. ".cpp"
+  local ppath = assert(prob.prob_path(path))
+  vim.fn.mkdir(vim.fn.fnamemodify(ppath, ":h"), "p")
+  local tc = '{"input":"","output":""'
+  vim.fn.writefile({
+    '{"tests":['
+      .. table.concat({
+        tc .. ',"id":3}',
+        tc .. ',"id":3}',
+        tc .. "}",
+        tc .. ',"id":"x"}',
+        tc .. ',"id":1.5}',
+        tc .. ',"id":1152921504606846976}',
+        tc .. ',"id":1}',
+      }, ",")
+      .. "]}",
+  }, ppath)
+  local problem = prob.load_or_create(path)
+  check_eq("first 3 and 1 kept, the rest from 4", ids_of(problem.tests), { 3, 4, 5, 6, 7, 8, 1 })
+end)
+
+case("new ids continue after the largest one", function()
+  local problem = { tests = { { id = 5, input = "", output = "" }, { id = 2, input = "", output = "" } } }
+  check_eq("add after { 5, 2 }", prob.add_testcase(problem).id, 6)
+  check_eq("add to an empty problem", prob.add_testcase({ tests = {} }).id, 1)
+  prob.insert_testcases(problem, 2, { { input = "a", output = "" }, { input = "b", output = "" } })
+  check_eq("insert continues", ids_of(problem.tests), { 5, 7, 8, 2, 6 })
+  local full = { tests = { { id = 2 ^ 53 - 1, input = "", output = "" }, { id = 1, input = "", output = "" } } }
+  prob.insert_testcases(full, 3, { { input = "", output = "" }, { input = "", output = "" } })
+  check_eq("past 2^53 - 1: smallest free ids", ids_of(full.tests), { 2 ^ 53 - 1, 1, 2, 3 })
+  local task = { tests = { { input = "1", output = "" }, { input = "2", output = "" }, { input = "3", output = "" } } }
+  check_eq("Companion task numbered from 1", ids_of(prob.from_companion(task, tmp .. "/cc.cpp").tests), { 1, 2, 3 })
+end)
+
 case("<C-a> in Expected adds a case and keeps Insert mode", function()
   local s = open_source(THREE)
   local prev = s.index
