@@ -218,11 +218,13 @@ end
 
 ---@param name string
 ---@param modifiable boolean
----@param buftype string|nil # default: editable → acwrite, readonly → nofile
-local function make_buf(name, modifiable, buftype)
+local function make_buf(name, modifiable)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, name .. "#" .. buf)
-  vim.bo[buf].buftype = buftype or (modifiable and "acwrite" or "nofile")
+  -- acwrite everywhere so :w works from any UI window (BufWriteCmd saves the .prob).
+  -- Unlike nofile, a stale 'modified' on acwrite blocks :q, so every programmatic
+  -- update must reset it (set_lines, patch_header, clear_ui_modified).
+  vim.bo[buf].buftype = "acwrite"
   vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].swapfile = false
   vim.bo[buf].filetype = "pretest"
@@ -1577,15 +1579,18 @@ local function setup_buf_autocmds()
     return
   end
   local group = vim.api.nvim_create_augroup("pretest_ui_" .. session.bufs.input, { clear = true })
-  for _, buf in ipairs({ session.bufs.input, session.bufs.expected }) do
+  for _, buf in pairs(session.bufs) do
     vim.api.nvim_create_autocmd("BufWriteCmd", {
       group = group,
       buffer = buf,
       callback = function()
         M.flush_edits()
-        vim.bo[buf].modified = false
+        -- Both Input and Expected were saved, whichever window ran :w.
+        clear_ui_modified()
       end,
     })
+  end
+  for _, buf in ipairs({ session.bufs.input, session.bufs.expected }) do
     vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
       group = group,
       buffer = buf,

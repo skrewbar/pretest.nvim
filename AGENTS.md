@@ -34,7 +34,7 @@ Do not pull online submit or custom checkers into these modules.
 
 - **Input** and **Expected** bodies are editable in their section buffers.
 - Problem **name** is edited via `:Pretest edit_name` (prompt); **timeLimit** / **memoryLimit** via `:Pretest edit_limits`. Header lines, Output, Runtime Error, and Stderr are read-only.
-- Persist Input/Expected on `:w`, before TC switch (`<C-n>`/`<C-p>`/header cursor), before `run`, and before Companion receive into the current file. Name and limits persist immediately on confirm.
+- Persist Input/Expected on `:w` from any UI window, before TC switch (`<C-n>`/`<C-p>`/header cursor), before `run`, and before Companion receive into the current file. Name and limits persist immediately on confirm.
 - Competitive Companion receive overwrites `.prob` name (and limits) from the incoming task.
 - Stderr section is shown only when non-empty.
 - Runtime Error section is shown only when the current case verdict is RE.
@@ -53,6 +53,7 @@ Do not pull online submit or custom checkers into these modules.
 
 - `render_all()` only when windows open or the source/problem changes. Otherwise update just the affected parts: `patch_header({...})` for fixed-row header lines, `render_header()` when the row count or header width changes, `load_edit_bufs()` when the visible case changes, `refresh_result_view()` for Output/RE/Stderr + layout.
 - Do not rewrite Input/Expected from run callbacks; that drops unsaved edits, cursor, and undo.
+- Every UI buffer is `acwrite` (one `BufWriteCmd` saves the `.prob`), so a stale `modified` on any of them blocks `:q`. Programmatic updates must leave `modified` false (`set_lines`, `patch_header`, `clear_ui_modified`).
 - `render_layout()` skips window calls while its layout key is unchanged and does nothing while the UI is closed.
 
 ## Testing

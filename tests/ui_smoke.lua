@@ -328,6 +328,57 @@ case("run hooks keep unsaved Input edits, cursor and undo", function()
   check("RE shown for current case", shown(s.bufs.re))
 end)
 
+---Testcase 1 as saved on disk.
+local function saved_case1(s)
+  local tc = vim.json.decode(table.concat(vim.fn.readfile(s.prob_path), "\n")).tests[1]
+  return { tc.input, tc.output }
+end
+
+---UI section keys whose buffer is 'modified' (what :q / :qa would refuse on).
+local function modified_ui_bufs(s)
+  local keys = {}
+  for key, buf in pairs(s.bufs) do
+    if vim.bo[buf].modified then
+      keys[#keys + 1] = key
+    end
+  end
+  table.sort(keys)
+  return keys
+end
+
+case(":w saves from every UI window", function()
+  local s = open_source(THREE)
+  ui.run({ 1 }, false)
+  hooks.on_case_done(1, RE())
+  hooks.on_all_done(false)
+  for _, key in ipairs({ "header", "input", "expected", "output", "re", "stderr" }) do
+    local win = vim.fn.win_findbuf(s.bufs[key])[1]
+    vim.api.nvim_buf_set_lines(s.bufs.input, 0, -1, false, { "in " .. key })
+    vim.api.nvim_buf_set_lines(s.bufs.expected, 0, -1, false, { "exp " .. key })
+    vim.api.nvim_set_current_win(win)
+    local ok, err = pcall(vim.cmd, "write")
+    check(key .. ": :w succeeds", ok, tostring(err))
+    check_eq(key .. ": Input/Expected saved", saved_case1(s), { "in " .. key, "exp " .. key })
+    check_eq(key .. ": no UI buffer left modified", modified_ui_bufs(s), {})
+  end
+end)
+
+case("programmatic updates leave no UI buffer modified", function()
+  local s = open_source(THREE)
+  ui.run({ 1, 2, 3 }, false)
+  hooks.on_case_start(1)
+  hooks.on_case_done(1, RE())
+  hooks.on_case_done(2, WA())
+  hooks.on_case_done(3, AC("6"))
+  hooks.on_all_done(false)
+  check_eq("after run", modified_ui_bufs(s), {})
+  ui.next_case()
+  ui.prev_case()
+  check_eq("after navigation", modified_ui_bufs(s), {})
+  vim.api.nvim_exec_autocmds("WinResized", {})
+  check_eq("after full header render", modified_ui_bufs(s), {})
+end)
+
 for _, mode in ipairs({ "sidebar", "float" }) do
   case("geometry untouched unless the visible sections change (" .. mode .. ")", function()
     local s = open_source(THREE, mode)

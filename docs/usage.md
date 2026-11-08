@@ -57,7 +57,7 @@ Add a testcase with `<C-a>` in any pretest window (Normal or Insert mode), `a` i
 
 Edits to Input/Expected are written to the `.prob` file:
 
-- on `:w` in either buffer
+- on `:w` in a pretest window
 - before switching to another case, before running testcases, when the UI closes, and when Neovim exits
 
 Leading and trailing blank lines are stored exactly as typed. They do not affect judging, because trailing whitespace is ignored during comparison (see [Verdicts](#verdicts)).
