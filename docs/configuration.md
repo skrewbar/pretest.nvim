@@ -190,14 +190,20 @@ languages = {
 ```
 
 - `exec` is spawned directly, not through a shell. Therefore quoting, globbing, `~`, and `&&` do not work.
-- In `exec` and each element of `args`, a value of `$src` is replaced with the absolute source path and `$bin` with the binary path. Placeholders embedded in a longer string (e.g. `"--out=$bin"`) are **not** replaced. Use a function when you need that.
-- Functions receive `ctx = { src_path = "...", bin_path = "..." }` and must return a string (`exec`) or a list (`args`). The return value is used as is.
-- You do not have to use `bin_path` / `$bin`. You can write elsewhere.
+- An `exec` or `args` element that is exactly one of the placeholders below is replaced. Placeholders embedded in a longer string (e.g. `"--out=$bin"`) are **not** replaced. Use a function when you need that.
+- Functions receive `ctx` with the fields below and must return a string (`exec`) or a list (`args`). The return value is used as is.
+
+  | Placeholder | `ctx` field | Value |
+  |-------------|-------------|-------|
+  | `$src` | `src_path` | Absolute source path |
+  | `$bin` | `bin_path` | Compile output path, unique per source |
+  | `$stem` | `stem` | Source file name without its extension (`main` for `main.cpp`) |
+
 - Both compile and run use the source file's directory as the working directory.
 
-### Which language a buffer uses
+### Language detection
 
-pretest first checks the buffer's `filetype`. If that is not a key in `languages`, it tries `vim.filetype.match` on the path, then the `extensions` lists, and finally a key equal to the extension. Files created by Competitive Companion use `companion.extension`, so that extension must map to a configured language for the UI to open automatically.
+pretest first checks the buffer's `filetype`. If that is not a key in `languages`, it tries `vim.filetype.match` on the path, then the `extensions` lists, and finally a key equal to the extension.
 
 ### Examples
 
@@ -243,21 +249,13 @@ languages = {
 languages = {
   java = {
     extensions = { "java" },
-    compile = {
-      exec = "javac",
-      args = function(ctx)
-        return { "-d", vim.fs.dirname(ctx.bin_path), ctx.src_path }
-      end,
-    },
-    run = {
-      exec = "java",
-      args = function(ctx)
-        return { "-cp", vim.fs.dirname(ctx.bin_path), vim.fn.fnamemodify(ctx.src_path, ":t:r") }
-      end,
-    },
+    compile = { exec = "javac", args = { "-d", "$bin", "$src" } },
+    run = { exec = "java", args = { "-cp", "$bin", "$stem" } },
   },
 },
 ```
+
+`javac` writes a directory rather than a file, so you can use `$bin` as the class directory (`.pretest/Main.out/Main.class` for `Main.java`).
 
 Run through a shell when you need shell features, for example a larger stack on Linux:
 

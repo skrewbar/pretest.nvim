@@ -2662,10 +2662,7 @@ local function check_lang_config(src_path, ft)
   end
   local exec = lang.run.exec
   if type(exec) == "function" then
-    exec = exec({
-      src_path = util.abspath(src_path),
-      bin_path = runner.bin_path_for(src_path),
-    })
+    exec = exec(runner.ctx_for(src_path))
   end
   if type(exec) ~= "string" then
     util.notify(

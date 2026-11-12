@@ -324,17 +324,19 @@ local function format_rss(kb)
   return string.format("%dKB", kb)
 end
 
+local PLACEHOLDERS = {
+  ["$src"] = "src_path",
+  ["$bin"] = "bin_path",
+  ["$stem"] = "stem",
+}
+
 ---Replace a whole argv/`exec` token. Substrings and function results are left as-is.
 ---@param s string
 ---@param ctx pretest.RunCtx
 ---@return string
 local function expand_placeholders(s, ctx)
-  if s == "$src" then
-    return ctx.src_path
-  elseif s == "$bin" then
-    return ctx.bin_path
-  end
-  return s
+  local field = PLACEHOLDERS[s]
+  return field and ctx[field] or s
 end
 
 ---@param args string[]
@@ -391,8 +393,21 @@ function M.bin_path_for(src_path)
   return vim.fs.joinpath(dir, name .. ".out")
 end
 
----Rename the compile binary when its path changes with the source. No-op if
----the old binary is missing or the paths are identical.
+---Context handed to `languages.*.{compile,run}` functions and placeholders.
+---@param src_path string
+---@return pretest.RunCtx
+function M.ctx_for(src_path)
+  local abs = util.abspath(src_path)
+  return {
+    src_path = abs,
+    bin_path = M.bin_path_for(src_path),
+    stem = vim.fn.fnamemodify(abs, ":t:r"),
+  }
+end
+
+---Rename the compile output when its path changes with the source. `$bin` may
+---be a file or a directory (e.g. `javac -d $bin`). No-op if the old output is
+---missing or the paths are identical.
 ---@param old_src string
 ---@param new_src string
 ---@return boolean
@@ -402,15 +417,15 @@ function M.relocate_bin(old_src, new_src)
   if old_bin == new_bin then
     return true
   end
-  if vim.fn.filereadable(old_bin) == 0 then
+  if not vim.uv.fs_stat(old_bin) then
     return true
   end
   local parent = vim.fn.fnamemodify(new_bin, ":h")
   if parent ~= "" and vim.fn.isdirectory(parent) == 0 then
     vim.fn.mkdir(parent, "p")
   end
-  if vim.fn.filereadable(new_bin) == 1 then
-    vim.fn.delete(new_bin)
+  if vim.uv.fs_stat(new_bin) then
+    vim.fn.delete(new_bin, "rf")
   end
   if vim.fn.rename(old_bin, new_bin) ~= 0 then
     util.notify("failed to move binary to " .. new_bin, vim.log.levels.WARN)
@@ -487,10 +502,7 @@ function M.compile(src_path, ft, on_done)
     return nil
   end
 
-  local ctx = {
-    src_path = util.abspath(src_path),
-    bin_path = M.bin_path_for(src_path),
-  }
+  local ctx = M.ctx_for(src_path)
   local exec = eval_exec(lang.compile.exec, ctx)
   if type(exec) ~= "string" then
     on_done(false, "compile.exec not configured for filetype: " .. util.filetype_label(ft))
@@ -532,10 +544,7 @@ end
 ---@return fun()|nil kill
 function M.run_one(src_path, ft, input, expected, time_limit_ms, memory_limit_mb, on_done)
   local lang = config.language(ft) ---@cast lang pretest.LangConfig
-  local ctx = {
-    src_path = util.abspath(src_path),
-    bin_path = M.bin_path_for(src_path),
-  }
+  local ctx = M.ctx_for(src_path)
   local exec = eval_exec(lang.run.exec, ctx)
   local args = eval_args(lang.run.args, ctx) or {}
 

@@ -95,8 +95,9 @@ local M = {}
 ---@field replace_testcases boolean
 
 ---@class pretest.RunCtx
----@field src_path string
----@field bin_path string
+---@field src_path string absolute source path
+---@field bin_path string compile output path; a file, or a directory if the compiler wants one
+---@field stem string source file name without its extension
 
 ---@alias pretest.LangExec string|(fun(ctx: pretest.RunCtx): string)
 ---@alias pretest.LangArgs string[]|(fun(ctx: pretest.RunCtx): string[])

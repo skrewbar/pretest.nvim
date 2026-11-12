@@ -190,14 +190,20 @@ languages = {
 ```
 
 - `exec`는 셸을 거치지 않고 직접 실행됩니다. 따라서 따옴표 처리, 글로빙, `~`, `&&`는 동작하지 않습니다.
-- `exec`와 `args`의 각 원소에서 값이 `$src`이면 소스의 절대 경로로, `$bin`이면 바이너리 경로로 치환됩니다. 문자열 안에 포함된 경우(예: `"--out=$bin"`)는 치환하지 **않습니다**. 이러한 기능이 필요한 경우에는 함수를 사용하세요.
-- 함수는 `ctx = { src_path = "...", bin_path = "..." }`를 받아 문자열(`exec`) 또는 리스트(`args`)를 반환해야 합니다. 반환값은 그대로 사용됩니다.
-- `bin_path` 혹은 `$bin`을 꼭 사용할 필요는 없습니다. 다른 위치를 사용해도 됩니다.
+- `exec`와 `args`의 원소가 아래 플레이스홀더 중 하나와 정확히 같으면 치환됩니다. 문자열 안에 포함된 경우(예: `"--out=$bin"`)는 치환하지 **않습니다**. 이러한 기능이 필요한 경우에는 함수를 사용하세요.
+- 함수는 아래 필드를 가진 `ctx`를 받아 문자열(`exec`) 또는 리스트(`args`)를 반환해야 합니다. 반환값은 그대로 사용됩니다.
+
+  | 플레이스홀더 | `ctx` 필드 | 값 |
+  |--------------|------------|-----|
+  | `$src` | `src_path` | 소스의 절대 경로 |
+  | `$bin` | `bin_path` | 컴파일 결과 경로. 소스마다 고유합니다 |
+  | `$stem` | `stem` | 확장자를 뺀 소스 파일 이름 (`main.cpp`이면 `main`) |
+
 - 컴파일과 실행 모두 소스 파일의 디렉터리를 작업 디렉터리로 사용합니다.
 
-### 버퍼가 어떤 언어를 쓰는지
+### 언어 감지 방식
 
-pretest는 먼저 버퍼의 `filetype`을 확인합니다. 그것이 `languages`의 키가 아니면 경로에 `vim.filetype.match`를 시도하고, 그다음 `extensions` 목록을, 마지막으로 확장자와 같은 이름의 키를 찾습니다. Competitive Companion이 만드는 파일은 `companion.extension`을 사용하므로, UI가 자동으로 열리려면 그 확장자가 설정된 언어에 대응해야 합니다.
+pretest는 먼저 버퍼의 `filetype`을 확인합니다. 그것이 `languages`의 키가 아니면 경로에 `vim.filetype.match`를 시도하고, 그다음 `extensions` 목록을, 마지막으로 확장자와 같은 이름의 키를 찾습니다.
 
 ### 예시
 
@@ -243,21 +249,13 @@ languages = {
 languages = {
   java = {
     extensions = { "java" },
-    compile = {
-      exec = "javac",
-      args = function(ctx)
-        return { "-d", vim.fs.dirname(ctx.bin_path), ctx.src_path }
-      end,
-    },
-    run = {
-      exec = "java",
-      args = function(ctx)
-        return { "-cp", vim.fs.dirname(ctx.bin_path), vim.fn.fnamemodify(ctx.src_path, ":t:r") }
-      end,
-    },
+    compile = { exec = "javac", args = { "-d", "$bin", "$src" } },
+    run = { exec = "java", args = { "-cp", "$bin", "$stem" } },
   },
 },
 ```
+
+`javac`는 파일이 아닌 디렉터리에 출력하므로 `$bin`을 클래스 디렉터리로 사용하는 방식을 사용할 수 있습니다(`Main.java`이면 `.pretest/Main.out/Main.class`).
 
 셸 기능이 필요할 때는 셸을 통해 실행합니다. 예를 들어 Linux에서 스택 크기를 키우는 경우:
 
