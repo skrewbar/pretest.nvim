@@ -453,7 +453,7 @@ case("add/delete testcase rebuild header rows", function()
   check("4 case rows", l[8] ~= nil and l[8]:find("[4]", 1, true) ~= nil, l[8])
   check_eq("new case Input empty", lines(s.bufs.input), { "" })
   check_header_full("after add")
-  ui.delete_testcase(4)
+  ui.delete_testcases({ 4 })
   check("back to 3 cases", s.index == 3 and #s.problem.tests == 3)
   check_eq("Input of case 3", lines(s.bufs.input), { "6" })
   check_header_full("after delete")
@@ -462,10 +462,10 @@ end)
 case("delete asks for confirmation", function()
   local s = open_source(THREE)
   confirm_answer = 2
-  ui.delete_testcase(2)
+  ui.delete_testcases({ 2 })
   check("No keeps the case", #s.problem.tests == 3)
   confirm_answer = 1
-  ui.delete_testcase(2)
+  ui.delete_testcases({ 2 })
   check("Yes deletes it", #s.problem.tests == 2 and s.problem.tests[2].input == "6")
 end)
 
@@ -600,6 +600,54 @@ case("paste into an empty problem", function()
   check_eq("one case", inputs(s), { "1" })
   check_eq("selects it", s.index, 1)
   check_header_full("after paste")
+end)
+
+case("delete several testcases with one confirmation", function()
+  local s = open_source(THREE)
+  ui.goto_case(3)
+  s.results = { [1] = AC(), [2] = WA(), [3] = AC("6") }
+  local asked = 0
+  local confirm = vim.fn.confirm
+  vim.fn.confirm = function(...)
+    asked = asked + 1
+    return confirm(...)
+  end
+  local notified = {}
+  local notify = vim.notify
+  vim.notify = function(msg, level)
+    notified[#notified + 1] = { msg, level }
+  end
+  local ok, err = pcall(function()
+    confirm_answer = 2
+    vim.cmd("Pretest delete 3 1 3")
+    check_eq("No keeps every case", #s.problem.tests, 3)
+    confirm_answer = 1
+    vim.cmd("Pretest delete 3 1 3")
+    check_eq("asked once per command", asked, 2)
+    check_eq("cases 1 and 3 deleted", inputs(s), { "4 5" })
+    check_eq("selects the lowest deleted index", s.index, 1)
+    check(
+      "result of case 2 shifts to 1",
+      s.results[1] and s.results[1].verdict == "WA" and s.results[2] == nil
+    )
+    check_eq("saved to .prob", #prob.load_or_create(s.src_path).tests, 1)
+    check_header_full("after multi delete")
+    vim.cmd("Pretest delete 1 9")
+    check_eq("invalid index deletes nothing", #s.problem.tests, 1)
+    check("invalid index errors", notified[1] and notified[1][2] == vim.log.levels.ERROR)
+    ui.add_testcase()
+    vim.cmd("Pretest delete all")
+    check("all deletes every case", #s.problem.tests == 0 and s.index == 0)
+  end)
+  vim.fn.confirm = confirm
+  vim.notify = notify
+  if not ok then
+    error(err, 0)
+  end
+end)
+
+case("delete completes all", function()
+  check_eq("delete <Tab>", require("pretest.commands").complete("", "Pretest delete "), { "all" })
 end)
 
 case("named registers carry testcases to another source", function()
@@ -795,7 +843,7 @@ end)
 case("delete with UI closed keeps edit buffers in sync", function()
   local s = open_source(THREE)
   ui.close()
-  ui.delete_testcase(1)
+  ui.delete_testcases({ 1 })
   check_eq("Input is new case 1", lines(s.bufs.input), { "4 5" })
   ui.run({ 1 }, false) -- flushes edit buffers into tests[1]
   check("tests[1] not overwritten", s.problem.tests[1].input == "4 5", s.problem.tests[1].input)

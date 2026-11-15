@@ -132,6 +132,26 @@ local function copy(args)
 end
 
 ---@param args string[]
+local function delete(args)
+  local s = ui.ensure_session()
+  if not s then
+    return
+  end
+
+  local indices
+  if #args == 1 and args[1] == "all" then
+    indices = util.all_indices(#s.problem.tests)
+  elseif #args > 0 then
+    indices = parse_indices(args, #s.problem.tests)
+    if not indices then
+      return
+    end
+  end
+
+  ui.delete_testcases(indices)
+end
+
+---@param args string[]
 local function paste(args)
   local rest, reg = take_register(args)
   if not rest then
@@ -170,8 +190,7 @@ function M.command(args)
     local idx = tonumber(parts[2])
     ui.goto_case(idx)
   elseif sub == "delete" then
-    local idx = tonumber(parts[2])
-    ui.delete_testcase(idx)
+    delete(vim.list_slice(parts, 2))
   elseif sub == "copy" then
     copy(vim.list_slice(parts, 2))
   elseif sub == "paste" then
@@ -238,9 +257,9 @@ function M.complete(arglead, cmdline)
     return vim.fn.getcompletion(arglead, "file")
   end
 
-  local completing_copy = parts[2] == "copy"
+  local completing_all = (parts[2] == "copy" or parts[2] == "delete")
     and ((#parts == 2 and cmdline:match("%s$")) or (#parts == 3 and not cmdline:match("%s$")))
-  if completing_copy then
+  if completing_all then
     return vim.startswith("all", arglead) and { "all" } or {}
   end
 

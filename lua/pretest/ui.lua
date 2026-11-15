@@ -1500,7 +1500,7 @@ local UI_KEY_ACTIONS = {
   delete = function(bind)
     local count = read_count(bind)
     if count then
-      M.delete_testcase(count > 0 and count or nil)
+      M.delete_testcases(count ~= 0 and { count } or nil)
     end
   end,
   ---`{count}{lhs}` copies testcase {count}; otherwise the current one (see `read_count`).
@@ -2518,32 +2518,60 @@ local function shift_results(results, at, delta)
   return shifted
 end
 
----@param index integer|nil
-function M.delete_testcase(index)
+---Delete testcases `indices` (default: the current one) after one confirmation.
+---Duplicates are ignored. The case at the lowest deleted index (or the new last
+---case) is selected afterwards.
+---@param indices integer[]|nil
+function M.delete_testcases(indices)
   local s = M.ensure_session()
   if not s then
     return
   end
-  if #s.problem.tests == 0 then
+  local n = #s.problem.tests
+  if n == 0 then
     util.notify("no testcases", vim.log.levels.WARN)
     return
   end
-  index = index or s.index
-  if index < 1 or index > #s.problem.tests then
-    util.notify("invalid testcase index", vim.log.levels.ERROR)
+
+  local seen, sorted = {}, {}
+  for _, i in ipairs(indices or { s.index }) do
+    if i < 1 or i > n then
+      util.notify("invalid testcase index", vim.log.levels.ERROR)
+      return
+    end
+    if not seen[i] then
+      seen[i] = true
+      sorted[#sorted + 1] = i
+    end
+  end
+  if #sorted == 0 then
     return
   end
-  if vim.fn.confirm(("Delete testcase %d?"):format(index), "&Yes\n&No", 2) ~= 1 then
+  table.sort(sorted)
+
+  local prompt
+  if #sorted == 1 then
+    prompt = ("Delete testcase %d?"):format(sorted[1])
+  elseif #sorted == n then
+    prompt = ("Delete all %d testcases?"):format(n)
+  else
+    prompt = ("Delete testcases %s?"):format(table.concat(sorted, ", "))
+  end
+  if vim.fn.confirm(prompt, "&Yes\n&No", 2) ~= 1 then
     return
   end
+
   M.flush_edits()
   stop_run(s)
-  prob.delete_testcase(s.problem, index)
-  s.results = shift_results(s.results, index, -1)
+  -- Highest first, so lower indices stay valid.
+  for k = #sorted, 1, -1 do
+    prob.delete_testcase(s.problem, sorted[k])
+    s.results = shift_results(s.results, sorted[k], -1)
+  end
   if #s.problem.tests == 0 then
     s.index = 0
   else
-    s.index = math.min(index, #s.problem.tests)
+    s.index = math.min(sorted[1], #s.problem.tests)
   end
   prob.save(s.problem, s.prob_path)
   -- Even with the UI closed: flush_edits later reads these buffers into tests[index].

@@ -14,7 +14,7 @@ pretest의 모든 동작은 `:Pretest <subcommand> [argument]`로 실행할 수 
 :Pretest stop
 :Pretest add
 :Pretest edit [index]
-:Pretest delete [index]
+:Pretest delete [all | index ...]
 :Pretest copy [all | index ...] ["x]
 :Pretest paste ["x]
 :Pretest edit_name
@@ -51,7 +51,7 @@ pretest의 모든 동작은 `:Pretest <subcommand> [argument]`로 실행할 수 
 |------|------|
 | `add` | 빈 테스트케이스를 목록의 맨 마지막에 추가하고 선택한 뒤 커서를 **Input**으로 옮깁니다. UI가 닫혀있다면 엽니다. |
 | `edit [index]` | UI를 열고 커서를 **Input**으로 옮깁니다. `index`가 있으면 해당 테스트케이스를 선택합니다. |
-| `delete [index]` | 확인을 받은 뒤 UI에서 선택된 테스트케이스 또는 `index`번 테스트케이스를 삭제합니다. 실행 중이면 실행을 멈춘 뒤 삭제합니다. |
+| `delete [all \| index ...]` | 확인을 한 번 받은 뒤 UI에서 선택된 테스트케이스(index 생략), 지정한 index의 테스트케이스(`:Pretest delete 2 4`), 또는 전체(`all`)를 삭제합니다. 실행 중이면 실행을 멈춘 뒤 삭제합니다. |
 | `copy [all \| index ...] ["x]` | 선택된 테스트케이스(index 생략), 지정한 index의 테스트케이스(`:Pretest copy 1 3`), 또는 전체(`all`)를 레지스터에 복사합니다. |
 | `paste ["x]` | 레지스터의 테스트케이스를 선택된 테스트케이스 바로 뒤에 삽입하고, 그중 첫 번째를 선택합니다. 맨 마지막에 추가하는 것이 아니라면 실행 중인 채점을 멈춥니다. |
 | `edit_name` | 문제 이름을 입력받아 변경합니다. |

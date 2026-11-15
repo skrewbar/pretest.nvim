@@ -14,7 +14,7 @@ Every pretest action is available as `:Pretest <subcommand> [argument]`. `:Prete
 :Pretest stop
 :Pretest add
 :Pretest edit [index]
-:Pretest delete [index]
+:Pretest delete [all | index ...]
 :Pretest copy [all | index ...] ["x]
 :Pretest paste ["x]
 :Pretest edit_name
@@ -51,7 +51,7 @@ Run commands save the source buffer first if it has unsaved changes, and open th
 |---------|-------------|
 | `add` | Append an empty testcase to the end of the list, select it, and move the cursor to **Input**. Opens the UI if it is closed. |
 | `edit [index]` | Open the UI and focus **Input**. With `index`, select that testcase. |
-| `delete [index]` | Delete the testcase selected in the UI, or testcase `index`, after a confirmation prompt. Stops a run in progress first. |
+| `delete [all \| index ...]` | Delete the testcase selected in the UI (no index), the testcases at the given indices (`:Pretest delete 2 4`), or every testcase (`all`) after one confirmation prompt. Stops a run in progress first. |
 | `copy [all \| index ...] ["x]` | Copy the selected testcase (no index), the testcases at the given indices (`:Pretest copy 1 3`), or every testcase (`all`) into a register. |
 | `paste ["x]` | Insert the testcases in a register right after the selected testcase and select the first of them. Stops a run in progress unless they are appended at the end. |
 | `edit_name` | Prompt for a new problem name. |

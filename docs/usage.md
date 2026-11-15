@@ -73,7 +73,7 @@ Leading and trailing blank lines are stored exactly as typed. They do not affect
 
 ### Deleting
 
-In the header, `dd` removes the current case and `{count}d` removes the case with that number (e.g. `3d` removes case 3). `:Pretest delete` and `:Pretest delete 3` do the same from anywhere. pretest asks for confirmation every time, and a run in progress is stopped first.
+In the header, `dd` removes the current case and `{count}d` removes the case with that number (e.g. `3d` removes case 3). `:Pretest delete` and `:Pretest delete 3` also remove cases, and `:Pretest delete 2 4` or `:Pretest delete all` removes several cases at once. pretest asks for confirmation before deleting, and a run in progress is stopped first.
 
 ### Copying and pasting
 

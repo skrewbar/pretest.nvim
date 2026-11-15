@@ -39,7 +39,7 @@ Do not pull online submit or custom checkers into these modules.
 - Stderr section is shown only when non-empty.
 - Runtime Error section is shown only when the current case verdict is RE.
 - UI keys are buffer-local and scoped (`ui_keys` `scope`: `all` / `readonly` / `header`). Do not bind single-letter keys that break editing (`a`, `d`, …) in Input/Expected by default.
-- Deleting a testcase always asks for confirmation (`delete_testcase`).
+- Deleting a testcase always asks for confirmation (`delete_testcases`).
 
 ## UI windows
 
