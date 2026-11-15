@@ -1510,7 +1510,7 @@ local UI_KEY_ACTIONS = {
     local reg = vim.v.register
     local count = read_count(bind)
     if count then
-      M.copy_testcases(count > 0 and { count } or nil, reg)
+      M.copy_testcases(count ~= 0 and { count } or nil, reg)
     end
   end,
   paste = function()
